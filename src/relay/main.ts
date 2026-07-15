@@ -1,18 +1,26 @@
-import { WebSocketServer } from 'ws';
-import { log } from '@/shared/log';
+import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
+import websocket from '@fastify/websocket';
+import createFastifyApp from 'fastify';
+import { log } from '@/shared/log.ts';
+import { config } from './config.ts';
+import { authRoutes } from './routes/auth.ts';
+import { wsRoutes } from './routes/ws.ts';
 
-const port = +(process.env.RELAY_PORT as `${number}`);
+async function main() {
+	const app = createFastifyApp({ logger: false });
 
-const wss = new WebSocketServer({ port, path: '/' });
+	await app.register(cors, { origin: config.corsOrigin });
+	await app.register(jwt, { secret: config.jwtSecret });
+	await app.register(websocket);
+	await app.register(authRoutes);
+	await app.register(wsRoutes);
 
-wss.on('connection', () => {
-	log('info', 'relay got a new connection');
-});
+	await app.listen({ port: config.port, host: config.host });
+	log('info', `relay listening on http://${config.host}:${config.port}`);
+}
 
-wss.on('listening', () => {
-	log('info', `relay is listening on ws://localhost:${port}/`);
-});
-
-wss.on('error', (err) => {
-	log('error', 'relay error:', err);
+main().catch((err) => {
+	log('error', 'relay failed to start', err);
+	process.exit(1);
 });

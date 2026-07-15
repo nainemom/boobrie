@@ -17,12 +17,20 @@
 		"test": "echo \"All fake tests passed!\"",
 		"typecheck": "tsc --noEmit",
 		"build:ts": "tsc -b",
-		"build:client": "run-s build:ts vite build",
+		"build:vite": "vite build",
+		"build:client": "run-s build:ts build:vite",
 		"dev:client": "vite",
 		"dev:relay": "tsx watch src/relay/main.ts",
 		"start:relay": "tsx src/relay/main.ts"
 	},
 	"dependencies": {
+		"@fastify/cors": "^11.3.0",
+		"@fastify/jwt": "^10.2.0",
+		"@fastify/websocket": "^11.3.0",
+		"@noble/curves": "^2.2.0",
+		"@scure/base": "^2.2.0",
+		"@scure/bip39": "^2.2.0",
+		"fastify": "^5.10.0",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"ws": "^8.21.1"
@@ -39,6 +47,7 @@
 		"changelogen": "^0.6.2",
 		"lefthook": "^2.1.10",
 		"npm-run-all2": "^9.0.2",
+		"tsx": "^4.23.1",
 		"typescript": "~6.0.2",
 		"vite": "^8.1.1"
 	},
