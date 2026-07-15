@@ -23,23 +23,18 @@ export const pendingMessages = pgTable(
 	],
 );
 
-// export const pushSubscriptions = pgTable(
-// 	'push_subscriptions',
-// 	{
-// 		id: bigserial('id', { mode: 'number' }).primaryKey(),
-// 		address: text('address')
-// 			.notNull()
-// 			.references(() => users.address, { onDelete: 'cascade' }),
-// 		subscription: text('subscription').notNull(),
-// 		createdAt: timestamp('created_at', { withTimezone: true })
-// 			.notNull()
-// 			.defaultNow(),
-// 	},
-// 	(table) => [index('push_subscriptions_address_idx').on(table.address)],
-// );
-
 export const users = pgTable('users', {
 	address: text('address').primaryKey(),
+	createdAt: timestamp('created_at', { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});
+
+export const pushSubscriptions = pgTable('push_subscriptions', {
+	address: text('address')
+		.primaryKey()
+		.references(() => users.address, { onDelete: 'cascade' }),
+	subscription: text('subscription').notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true })
 		.notNull()
 		.defaultNow(),

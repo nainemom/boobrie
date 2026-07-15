@@ -32,5 +32,6 @@
 		"vite.config.ts",
 		"commitlint.config.ts",
 		"drizzle.config.ts"
-	]
+	],
+	"exclude": ["src/client/sw.ts"]
 }

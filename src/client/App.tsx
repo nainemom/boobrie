@@ -18,6 +18,14 @@ import { randomId } from '@/shared/crypto';
 import type { ClientMsg, ServerMsg } from '@/shared/protocol';
 import type { ChatMessage } from '@/shared/types';
 import { decryptFrom, encryptFor } from './chat';
+import {
+	existingPushSubscription,
+	notificationPermission,
+	pushSupported,
+	requestNotificationPermission,
+	subscribeToPush,
+	unsubscribeFromPush,
+} from './push';
 import { authenticate, type RelaySession, relayWsUrl } from './relay';
 
 /** Where the relay lives. Set VITE_RELAY_URL in .env to point elsewhere. */
@@ -29,6 +37,13 @@ type WsStatus =
 	| 'connecting'
 	| 'connected'
 	| 'closed'
+	| 'error';
+
+type PushStatus =
+	| 'idle'
+	| 'subscribing'
+	| 'subscribed'
+	| 'unsubscribing'
 	| 'error';
 
 /**
@@ -56,6 +71,14 @@ export function App() {
 	const [wsStatus, setWsStatus] = useState<WsStatus>('idle');
 	const [session, setSession] = useState<RelaySession | null>(null);
 	const [relayError, setRelayError] = useState<string | null>(null);
+
+	// Push: the relay hands us its VAPID key on `ready` (null if push is off).
+	const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
+	// Notification permission is a per-origin browser setting — independent of
+	// identity or connection, so it's tracked separately from the subscription.
+	const [permission, setPermission] = useState(notificationPermission);
+	const [pushStatus, setPushStatus] = useState<PushStatus>('idle');
+	const [pushError, setPushError] = useState<string | null>(null);
 
 	// Chat: one peer at a time, messages kept only in memory (no history).
 	const [peerInput, setPeerInput] = useState('');
@@ -89,6 +112,9 @@ export function App() {
 			setSession(null);
 			setRelayError(null);
 			setWsStatus('idle');
+			setVapidPublicKey(null);
+			setPushStatus('idle');
+			setPushError(null);
 
 			// Drop any chat state tied to the old identity.
 			setPeerInput('');
@@ -189,6 +215,8 @@ export function App() {
 			switch (msg.t) {
 				case 'ready':
 					// Bound and connected; queued messages (if any) arrive next.
+					// The relay tells us here whether (and how) to subscribe for push.
+					setVapidPublicKey(msg.vapidPublicKey ?? null);
 					break;
 				case 'presence':
 					if (msg.address === peer) setPeerOnline(msg.online);
@@ -275,6 +303,75 @@ export function App() {
 		closeSocket();
 		setWsStatus('closed');
 	}, [closeSocket]);
+
+	// Step 1 of 2: ask for notification permission. Separate from subscribing so
+	// the two can be offered as distinct buttons — a user may hold permission
+	// without this device being the active push target.
+	const grantPermission = useCallback(async () => {
+		setPushError(null);
+		try {
+			setPermission(await requestNotificationPermission());
+		} catch (error) {
+			setPushError(error instanceof Error ? error.message : String(error));
+		}
+	}, []);
+
+	// Step 2 of 2: subscribe this device and register it with the relay.
+	// Reusing the existing browser subscription makes this idempotent.
+	const enablePush = useCallback(async () => {
+		if (!vapidPublicKey) return;
+		setPushError(null);
+		setPushStatus('subscribing');
+		try {
+			const subscription = await subscribeToPush(vapidPublicKey);
+			if (!sendToRelay({ t: 'push', subscription })) {
+				throw new Error('Not connected to the relay.');
+			}
+			setPushStatus('subscribed');
+		} catch (error) {
+			setPushError(error instanceof Error ? error.message : String(error));
+			setPushStatus('error');
+		}
+	}, [vapidPublicKey, sendToRelay]);
+
+	// The reverse: drop the local subscription and tell the relay to forget
+	// this device as the push target.
+	const disablePush = useCallback(async () => {
+		setPushError(null);
+		setPushStatus('unsubscribing');
+		try {
+			await unsubscribeFromPush();
+			if (!sendToRelay({ t: 'unpush' })) {
+				throw new Error('Not connected to the relay.');
+			}
+			setPushStatus('idle');
+		} catch (error) {
+			setPushError(error instanceof Error ? error.message : String(error));
+			setPushStatus('error');
+		}
+	}, [sendToRelay]);
+
+	// Once connected, reflect whether this device already has a subscription —
+	// and if so, reassert it with the relay (a fresh session may mean the relay
+	// forgot the target, or another device took it over). This never creates a
+	// new subscription or prompts for permission; that only ever happens via the
+	// explicit buttons below.
+	useEffect(() => {
+		if (wsStatus !== 'connected' || !vapidPublicKey) return;
+		let cancelled = false;
+		void existingPushSubscription().then((subscription) => {
+			if (cancelled) return;
+			if (subscription) {
+				sendToRelay({ t: 'push', subscription });
+				setPushStatus('subscribed');
+			} else {
+				setPushStatus('idle');
+			}
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [wsStatus, vapidPublicKey, sendToRelay]);
 
 	const openChat = useCallback(
 		(event: FormEvent) => {
@@ -509,6 +606,75 @@ export function App() {
 				{relayError ? (
 					<p role="alert">
 						<strong>Relay error:</strong> {relayError}
+					</p>
+				) : null}
+				{wsStatus === 'connected' ? (
+					vapidPublicKey ? (
+						pushSupported() ? (
+							<div>
+								<p>
+									<button
+										type="button"
+										onClick={grantPermission}
+										disabled={
+											permission === 'granted' || permission === 'denied'
+										}
+									>
+										{permission === 'granted'
+											? 'Notification permission granted'
+											: permission === 'denied'
+												? 'Notification permission blocked'
+												: 'Grant notification permission'}
+									</button>
+									{permission === 'denied' ? (
+										<>
+											{' '}
+											<small>
+												Blocked in browser settings; this page can't re-prompt.
+											</small>
+										</>
+									) : null}
+								</p>
+								<p>
+									<button
+										type="button"
+										onClick={
+											pushStatus === 'subscribed' ? disablePush : enablePush
+										}
+										disabled={
+											permission !== 'granted' ||
+											pushStatus === 'subscribing' ||
+											pushStatus === 'unsubscribing'
+										}
+									>
+										{pushStatus === 'subscribed'
+											? 'Unsubscribe this device'
+											: pushStatus === 'subscribing'
+												? 'Subscribing…'
+												: pushStatus === 'unsubscribing'
+													? 'Unsubscribing…'
+													: 'Subscribe this device'}
+									</button>{' '}
+									<small>
+										Whichever device last subscribed is notified about messages
+										that arrive while it's offline.
+									</small>
+								</p>
+							</div>
+						) : (
+							<p>
+								<small>This browser can't show push notifications.</small>
+							</p>
+						)
+					) : (
+						<p>
+							<small>Push notifications aren't configured on this relay.</small>
+						</p>
+					)
+				) : null}
+				{pushError ? (
+					<p role="alert">
+						<strong>Push error:</strong> {pushError}
 					</p>
 				) : null}
 			</section>

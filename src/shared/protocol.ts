@@ -67,14 +67,18 @@ export type ClientMsg =
 	/** Ask whether an address currently has a connected device. */
 	| { t: 'probe'; address: string }
 	/** Register this device for offline Web Push notifications. */
-	| { t: 'push'; subscription: PushSubscriptionJson };
+	| { t: 'push'; subscription: PushSubscriptionJson }
+	/** Forget this address's push target (the opposite of `push`). */
+	| { t: 'unpush' };
 
 /** Reasons a request can fail. */
 export type ErrorCode = 'unauthorized' | 'bad-request';
 
 export type ServerMsg =
-	/** Connected and bound to `address`. Queued offline messages follow. */
-	| { t: 'ready'; address: string }
+	/** Connected and bound to `address`. Queued offline messages follow.
+	 * `vapidPublicKey` is present only when the relay has Web Push configured;
+	 * the client uses it to subscribe this device for offline notifications. */
+	| { t: 'ready'; address: string; vapidPublicKey?: string }
 	/** Another device took over this address; this session is closing. */
 	| { t: 'kicked' }
 	/** Something went wrong. */

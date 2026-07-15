@@ -9,6 +9,17 @@ if (!process.env.DB_URL) {
 	throw new Error('DB_URL env is not found');
 }
 
+function readVapid() {
+	const publicKey = process.env.VAPID_PUBLIC_KEY;
+	const privateKey = process.env.VAPID_PRIVATE_KEY;
+	if (!publicKey || !privateKey) return null;
+	return {
+		publicKey,
+		privateKey,
+		subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@boobrie.local',
+	};
+}
+
 export const config = {
 	port: Number(process.env.RELAY_PORT ?? 5200),
 	host: process.env.RELAY_HOST ?? '0.0.0.0',
@@ -17,4 +28,5 @@ export const config = {
 	sessionTtlMs: 1 * HOUR,
 	corsOrigin: process.env.RELAY_CORS_ORIGIN ?? true,
 	dbUrl: process.env.DB_URL,
+	vapid: readVapid(),
 } as const;

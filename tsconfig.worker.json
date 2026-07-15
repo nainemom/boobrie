@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"lib": ["ES2023", "WebWorker"],
+		"types": ["@serwist/vite/typings"],
+		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo"
+	},
+	"include": ["src/client/sw.ts"],
+	"exclude": []
+}

@@ -7,6 +7,12 @@ import type { EncryptedPayload, PushSubscriptionJson } from '@/shared/types';
 import { db } from '../db/index.ts';
 import { pendingMessages } from '../db/schema.ts';
 import { isOnline, register, sendTo, unregister } from '../hub.ts';
+import {
+	deleteSubscription,
+	notify,
+	saveSubscription,
+	vapidPublicKey,
+} from '../push.ts';
 
 // The gate stashes the verified address here for the handler to read.
 declare module 'fastify' {
@@ -60,6 +66,8 @@ function parseClientMsg(raw: string): ClientMsg | null {
 			return typeof m.subscription === 'object' && m.subscription !== null
 				? { t: 'push', subscription: m.subscription as PushSubscriptionJson }
 				: null;
+		case 'unpush':
+			return { t: 'unpush' };
 		default:
 			return null;
 	}
@@ -108,7 +116,19 @@ async function handleMessage(
 				messageId: msg.id,
 				payload: JSON.stringify(msg.enc),
 			});
-			sendTo(msg.to, { t: 'msg', from: address, id: msg.id, enc: msg.enc });
+			const delivered = sendTo(msg.to, {
+				t: 'msg',
+				from: address,
+				id: msg.id,
+				enc: msg.enc,
+			});
+			if (!delivered) {
+				void notify(msg.to, {
+					type: 'message',
+					from: address,
+					id: msg.id,
+				}).catch((err) => log('warn', 'push notify failed', msg.to, err));
+			}
 			break;
 		}
 		case 'ack': {
@@ -132,8 +152,14 @@ async function handleMessage(
 			break;
 		}
 		case 'push': {
-			// Web Push is not wired up yet; recognized but ignored.
-			log('info', 'ws push subscription ignored (not supported)', address);
+			// Replace this address's single push target with the caller's device.
+			await saveSubscription(address, msg.subscription);
+			log('info', 'ws push subscription registered', address);
+			break;
+		}
+		case 'unpush': {
+			await deleteSubscription(address);
+			log('info', 'ws push subscription removed', address);
 			break;
 		}
 	}
@@ -161,7 +187,11 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
 			log('info', 'ws connected', address);
 
 			register(address, socket);
-			send(socket, { t: 'ready', address });
+			send(socket, {
+				t: 'ready',
+				address,
+				vapidPublicKey: vapidPublicKey() ?? undefined,
+			});
 			// Deliver anything that piled up while this address was offline.
 			void flushPending(socket, address).catch((err) =>
 				log('error', 'ws flush failed', address, err),

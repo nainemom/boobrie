@@ -15,6 +15,13 @@
       "when": 1784148804280,
       "tag": "0001_normal_imperial_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784151081241,
+      "tag": "0002_legal_longshot",
+      "breakpoints": true
     }
   ]
 }

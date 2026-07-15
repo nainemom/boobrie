@@ -5,6 +5,7 @@ import createFastifyApp from 'fastify';
 import { log } from '@/shared/log.ts';
 import { config } from './config.ts';
 import { initDb } from './db/index.ts';
+import { initPush } from './push.ts';
 import { authRoutes } from './routes/auth.ts';
 import { wsRoutes } from './routes/ws.ts';
 
@@ -12,6 +13,7 @@ async function main() {
 	const app = createFastifyApp({ logger: false });
 
 	await initDb();
+	initPush();
 
 	await app.register(cors, { origin: config.corsOrigin });
 	await app.register(jwt, { secret: config.jwtSecret });
