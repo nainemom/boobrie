@@ -1,0 +1,17 @@
+rc: lefthook-rc
+
+output:
+  - failure
+
+pre-push:
+  jobs:
+    - run: npm run test
+  
+pre-commit:
+  parallel: true
+  jobs:
+    - run: npm run lint:staged
+
+commit-msg:
+  jobs:
+    - run: npx commitlint --edit {1}

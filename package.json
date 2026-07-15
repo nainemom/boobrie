@@ -1,0 +1,43 @@
+{
+	"name": "boobrie",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"engines": {
+		"node": "24.18"
+	},
+	"scripts": {
+		"lefthook:install": "lefthook install",
+		"prepare": "run-s lefthook:install lint:fix",
+		"lint": "biome check",
+		"lint:staged": "biome check --staged --no-errors-on-unmatched",
+		"lint:ci": "biome ci",
+		"lint:fix": "biome check --write --unsafe",
+		"bump": "./bump.sh",
+		"test": "echo \"All fake tests passed!\"",
+		"dev": "vite",
+		"build": "run-s tsc -b vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"react": "^19.2.7",
+		"react-dom": "^19.2.7"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.4",
+		"@commitlint/cli": "^20.5.3",
+		"@commitlint/config-conventional": "^20.5.3",
+		"@types/node": "^24.13.2",
+		"@types/react": "^19.2.17",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.3",
+		"changelogen": "^0.6.2",
+		"lefthook": "^2.1.10",
+		"npm-run-all2": "^9.0.2",
+		"typescript": "~6.0.2",
+		"vite": "^8.1.1"
+	},
+	"allowScripts": {
+		"lefthook@2.1.10": true
+	}
+}

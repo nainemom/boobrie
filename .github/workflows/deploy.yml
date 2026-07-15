@@ -1,0 +1,53 @@
+name: Deploy
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: production-deploy-lock
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    name: release
+    if: ${{ !contains(github.event.head_commit.message, 'ci-skip') }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [24.18.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Linter
+        run: npm run lint:ci
+
+      - name: Bump Version
+        if: ${{ github.event_name == 'push' }}
+        run: npm run bump
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy
+        run: |-
+          # Deploy...
+      - name: Update the Repo
+        if: ${{ github.event_name == 'push' }}
+        run: git push origin master --tags
