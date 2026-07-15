@@ -5,6 +5,10 @@ if (!process.env.JWT_SECRET) {
 	throw new Error('JWT_SECRET env is not found');
 }
 
+if (!process.env.DB_URL) {
+	throw new Error('DB_URL env is not found');
+}
+
 export const config = {
 	port: Number(process.env.RELAY_PORT ?? 5200),
 	host: process.env.RELAY_HOST ?? '0.0.0.0',
@@ -12,4 +16,5 @@ export const config = {
 	challengeTtlMs: 2 * MINUTE,
 	sessionTtlMs: 1 * HOUR,
 	corsOrigin: process.env.RELAY_CORS_ORIGIN ?? true,
+	dbUrl: process.env.DB_URL,
 } as const;

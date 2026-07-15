@@ -27,5 +27,10 @@
 			"@/*": ["./src/*"]
 		}
 	},
-	"include": ["src", "vite.config.ts", "commitlint.config.ts"]
+	"include": [
+		"src",
+		"vite.config.ts",
+		"commitlint.config.ts",
+		"drizzle.config.ts"
+	]
 }

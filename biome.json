@@ -6,7 +6,13 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!public", "!package.json", "!package-lock.json"],
+		"includes": [
+			"**",
+			"!public",
+			"!package.json",
+			"!package-lock.json",
+			"!src/relay/db/migrations"
+		],
 		"ignoreUnknown": false
 	},
 	"formatter": {

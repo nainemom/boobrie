@@ -14,6 +14,7 @@
 		"lint:ci": "biome ci",
 		"lint:fix": "biome check --write --unsafe",
 		"bump": "./bump.sh",
+		"generate:migrations": "drizzle-kit generate",
 		"test": "echo \"All fake tests passed!\"",
 		"typecheck": "tsc --noEmit",
 		"build:ts": "tsc -b",
@@ -30,7 +31,9 @@
 		"@noble/curves": "^2.2.0",
 		"@scure/base": "^2.2.0",
 		"@scure/bip39": "^2.2.0",
+		"drizzle-orm": "^0.45.2",
 		"fastify": "^5.10.0",
+		"pg": "^8.22.0",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"ws": "^8.21.1"
@@ -40,11 +43,13 @@
 		"@commitlint/cli": "^20.5.3",
 		"@commitlint/config-conventional": "^20.5.3",
 		"@types/node": "^24.13.2",
+		"@types/pg": "^8.20.0",
 		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.2.3",
 		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-react": "^6.0.3",
 		"changelogen": "^0.6.2",
+		"drizzle-kit": "^0.31.10",
 		"lefthook": "^2.1.10",
 		"npm-run-all2": "^9.0.2",
 		"tsx": "^4.23.1",
@@ -52,6 +57,9 @@
 		"vite": "^8.1.1"
 	},
 	"allowScripts": {
-		"lefthook@2.1.10": true
+		"lefthook@2.1.10": true,
+		"esbuild@0.28.1": true,
+		"esbuild@0.18.20": true,
+		"esbuild@0.25.12": true
 	}
 }

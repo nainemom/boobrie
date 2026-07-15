@@ -9,6 +9,8 @@ import type {
 	VerifyResponse,
 } from '@/shared/protocol';
 import { config } from '../config.ts';
+import { db } from '../db/index.ts';
+import { users } from '../db/schema.ts';
 
 const NONCE_BYTES = 32;
 
@@ -85,12 +87,19 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 			return reply.code(401).send({ error: 'wrong response' });
 		}
 
+		const inserted = await db
+			.insert(users)
+			.values({ address: claims.address })
+			.onConflictDoNothing()
+			.returning({ address: users.address });
+
 		const body: VerifyResponse = {
 			token: app.jwt.sign(
 				{ address: claims.address },
 				{ expiresIn: config.sessionTtlMs },
 			),
 			expiresAt: Date.now() + config.sessionTtlMs,
+			created: inserted.length > 0,
 		};
 		return reply.send(body);
 	});

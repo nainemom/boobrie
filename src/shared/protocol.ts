@@ -53,6 +53,8 @@ export interface VerifyResponse {
 	token: string;
 	/** Epoch millis when the token stops being accepted. */
 	expiresAt: number;
+	/** True only when this verify created the user record (first-ever login). */
+	created: boolean;
 }
 
 // --- WebSocket messages (post-auth transport) ------------------------------
