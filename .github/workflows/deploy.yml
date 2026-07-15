@@ -43,7 +43,7 @@ jobs:
         run: npm run bump
 
       - name: Build
-        run: npm run build
+        run: npm run build:client
 
       - name: Deploy
         run: |-
