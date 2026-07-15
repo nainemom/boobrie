@@ -14,6 +14,10 @@ import {
 	recoverIdentity,
 	serializeSealedBox,
 } from '@/shared/auth';
+import { randomId } from '@/shared/crypto';
+import type { ClientMsg, ServerMsg } from '@/shared/protocol';
+import type { ChatMessage } from '@/shared/types';
+import { decryptFrom, encryptFor } from './chat';
 import { authenticate, type RelaySession, relayWsUrl } from './relay';
 
 /** Where the relay lives. Set VITE_RELAY_URL in .env to point elsewhere. */
@@ -51,8 +55,17 @@ export function App() {
 	const wsRef = useRef<WebSocket | null>(null);
 	const [wsStatus, setWsStatus] = useState<WsStatus>('idle');
 	const [session, setSession] = useState<RelaySession | null>(null);
-	const [serverMsg, setServerMsg] = useState<string | null>(null);
 	const [relayError, setRelayError] = useState<string | null>(null);
+
+	// Chat: one peer at a time, messages kept only in memory (no history).
+	const [peerInput, setPeerInput] = useState('');
+	const [peer, setPeer] = useState('');
+	const [peerOnline, setPeerOnline] = useState<boolean | null>(null);
+	const [draft, setDraft] = useState('');
+	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [chatError, setChatError] = useState<string | null>(null);
+	// Ids already shown — delivery is at-least-once, so guard against redelivery.
+	const seenIncoming = useRef<Set<string>>(new Set());
 
 	const closeSocket = useCallback(() => {
 		const ws = wsRef.current;
@@ -74,9 +87,17 @@ export function App() {
 			// A new pair means the old session no longer applies.
 			closeSocket();
 			setSession(null);
-			setServerMsg(null);
 			setRelayError(null);
 			setWsStatus('idle');
+
+			// Drop any chat state tied to the old identity.
+			setPeerInput('');
+			setPeer('');
+			setPeerOnline(null);
+			setDraft('');
+			setMessages([]);
+			setChatError(null);
+			seenIncoming.current = new Set();
 
 			setIdentity(next);
 			setRestoreError(null);
@@ -148,11 +169,86 @@ export function App() {
 		[identity, sealedInput],
 	);
 
+	const sendToRelay = useCallback((msg: ClientMsg): boolean => {
+		const ws = wsRef.current;
+		if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+		ws.send(JSON.stringify(msg));
+		return true;
+	}, []);
+
+	// Route a frame from the relay. Held in a ref (below) so the live socket always
+	// calls the newest version, closing over fresh `identity` / `peer`.
+	const handleServerMsg = useCallback(
+		(data: string) => {
+			let msg: ServerMsg;
+			try {
+				msg = JSON.parse(data) as ServerMsg;
+			} catch {
+				return;
+			}
+			switch (msg.t) {
+				case 'ready':
+					// Bound and connected; queued messages (if any) arrive next.
+					break;
+				case 'presence':
+					if (msg.address === peer) setPeerOnline(msg.online);
+					break;
+				case 'msg': {
+					if (!identity) break;
+					// Ack unconditionally so the relay drops its copy, even for a dup.
+					sendToRelay({ t: 'ack', id: msg.id });
+					if (seenIncoming.current.has(msg.id)) break;
+					seenIncoming.current.add(msg.id);
+					decryptFrom(identity, msg.from, msg.enc)
+						.then((body) =>
+							setMessages((prev) => [
+								...prev,
+								{
+									id: msg.id,
+									peer: msg.from,
+									direction: 'in',
+									body,
+									at: Date.now(),
+								},
+							]),
+						)
+						.catch((error) =>
+							setChatError(
+								error instanceof Error ? error.message : String(error),
+							),
+						);
+					break;
+				}
+				case 'error':
+					setRelayError(`${msg.code}: ${msg.message}`);
+					break;
+				case 'kicked':
+					setRelayError('Another device connected with this identity.');
+					setWsStatus('closed');
+					break;
+			}
+		},
+		[identity, peer, sendToRelay],
+	);
+
+	const handleServerMsgRef = useRef(handleServerMsg);
+	useEffect(() => {
+		handleServerMsgRef.current = handleServerMsg;
+	}, [handleServerMsg]);
+
+	// Ask the relay whether the current peer is online whenever we (re)connect or
+	// switch peers.
+	useEffect(() => {
+		if (wsStatus === 'connected' && peer !== '') {
+			setPeerOnline(null);
+			sendToRelay({ t: 'probe', address: peer });
+		}
+	}, [wsStatus, peer, sendToRelay]);
+
 	const connect = useCallback(async () => {
 		if (!identity) return;
 		closeSocket();
 		setRelayError(null);
-		setServerMsg(null);
 		setWsStatus('authenticating');
 		try {
 			// 1. Prove key ownership over HTTP and get a session token.
@@ -163,7 +259,7 @@ export function App() {
 			const ws = new WebSocket(relayWsUrl(RELAY_URL, next.token));
 			wsRef.current = ws;
 			ws.onopen = () => setWsStatus('connected');
-			ws.onmessage = (event) => setServerMsg(String(event.data));
+			ws.onmessage = (event) => handleServerMsgRef.current(String(event.data));
 			ws.onclose = () => setWsStatus('closed');
 			ws.onerror = () => {
 				setRelayError('WebSocket refused the connection (token rejected?).');
@@ -180,8 +276,48 @@ export function App() {
 		setWsStatus('closed');
 	}, [closeSocket]);
 
+	const openChat = useCallback(
+		(event: FormEvent) => {
+			event.preventDefault();
+			setChatError(null);
+			setPeer(peerInput.trim());
+		},
+		[peerInput],
+	);
+
+	const probePeer = useCallback(() => {
+		if (peer === '') return;
+		setPeerOnline(null);
+		sendToRelay({ t: 'probe', address: peer });
+	}, [peer, sendToRelay]);
+
+	const sendChat = useCallback(
+		async (event: FormEvent) => {
+			event.preventDefault();
+			if (!identity || peer === '' || draft.trim() === '') return;
+			const body = draft;
+			setChatError(null);
+			try {
+				const enc = await encryptFor(identity, peer, body);
+				const id = randomId();
+				if (!sendToRelay({ t: 'msg', to: peer, id, enc })) {
+					throw new Error('Not connected to the relay.');
+				}
+				setMessages((prev) => [
+					...prev,
+					{ id, peer, direction: 'out', body, at: Date.now() },
+				]);
+				setDraft('');
+			} catch (error) {
+				setChatError(error instanceof Error ? error.message : String(error));
+			}
+		},
+		[identity, peer, draft, sendToRelay],
+	);
+
 	const words = identity ? identity.mnemonic.split(' ') : [];
 	const connecting = wsStatus === 'authenticating' || wsStatus === 'connecting';
+	const conversation = messages.filter((message) => message.peer === peer);
 
 	return (
 		<main>
@@ -369,22 +505,92 @@ export function App() {
 							<dd>{new Date(session.expiresAt).toLocaleTimeString()}</dd>
 						</>
 					) : null}
-					{serverMsg ? (
-						<>
-							<dt>Relay said</dt>
-							<dd>
-								<output>
-									<code>{serverMsg}</code>
-								</output>
-							</dd>
-						</>
-					) : null}
 				</dl>
 				{relayError ? (
 					<p role="alert">
 						<strong>Relay error:</strong> {relayError}
 					</p>
 				) : null}
+			</section>
+
+			<hr />
+
+			<section aria-labelledby="chat-heading">
+				<h2 id="chat-heading">Chat</h2>
+				{wsStatus === 'connected' ? (
+					<>
+						<form onSubmit={openChat}>
+							<label htmlFor="peer-input">Peer address</label>
+							<input
+								id="peer-input"
+								value={peerInput}
+								onChange={(event) => setPeerInput(event.target.value)}
+								placeholder="their address (public key)"
+							/>
+							<button type="submit" disabled={peerInput.trim() === ''}>
+								Open chat
+							</button>
+						</form>
+
+						{peer ? (
+							<>
+								<p>
+									Chatting with <code>{peer}</code>{' '}
+									<output>
+										{peerOnline === null
+											? '(checking…)'
+											: peerOnline
+												? '● online'
+												: '○ offline'}
+									</output>{' '}
+									<button type="button" onClick={probePeer}>
+										Refresh
+									</button>
+								</p>
+
+								{conversation.length > 0 ? (
+									<ol>
+										{conversation.map((message) => (
+											<li key={message.id}>
+												<strong>
+													{message.direction === 'out' ? 'You' : 'Them'}:
+												</strong>{' '}
+												{message.body}
+											</li>
+										))}
+									</ol>
+								) : (
+									<p>
+										<small>No messages yet.</small>
+									</p>
+								)}
+
+								<form onSubmit={sendChat}>
+									<label htmlFor="chat-input">Message</label>
+									<input
+										id="chat-input"
+										value={draft}
+										onChange={(event) => setDraft(event.target.value)}
+										placeholder="Type a message"
+									/>
+									<button type="submit" disabled={draft.trim() === ''}>
+										Send
+									</button>
+								</form>
+
+								{chatError ? (
+									<p role="alert">
+										<strong>Chat error:</strong> {chatError}
+									</p>
+								) : null}
+							</>
+						) : (
+							<p>Enter a peer's address to open a chat.</p>
+						)}
+					</>
+				) : (
+					<p>Connect to the relay above to start chatting.</p>
+				)}
 			</section>
 		</main>
 	);

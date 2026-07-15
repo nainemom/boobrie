@@ -62,6 +62,8 @@ export interface VerifyResponse {
 export type ClientMsg =
 	/** Send an end-to-end encrypted message to a peer address. */
 	| { t: 'msg'; to: string; id: string; enc: EncryptedPayload }
+	/** Confirm receipt of a `msg` so the relay can drop its stored copy. */
+	| { t: 'ack'; id: string }
 	/** Ask whether an address currently has a connected device. */
 	| { t: 'probe'; address: string }
 	/** Register this device for offline Web Push notifications. */
