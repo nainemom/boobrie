@@ -19,8 +19,11 @@
 
 import type {
 	EncryptedPayload,
+	Feature,
+	Flag,
 	PushSubscriptionJson,
 	SealedBox,
+	User,
 } from './types.ts';
 
 // --- HTTP auth handshake ---------------------------------------------------
@@ -55,6 +58,12 @@ export interface VerifyResponse {
 	expiresAt: number;
 	/** True only when this verify created the user record (first-ever login). */
 	created: boolean;
+}
+
+/** `GET /auth/me` reply. */
+export interface MeResponse extends User {
+	flag: Flag;
+	features: Feature[];
 }
 
 // --- WebSocket messages (post-auth transport) ------------------------------

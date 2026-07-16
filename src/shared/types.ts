@@ -58,3 +58,13 @@ export const FLAG_FEATURES: Record<Flag, Feature[]> = {
 	pepperoni: ['message', 'notifications'],
 	bistecca: ['message', 'notifications', 'handle', 'file'],
 };
+
+export const ROLES = ['user', 'admin'] as const;
+
+export type Role = (typeof ROLES)[number];
+
+export interface User {
+	address: string;
+	role: Role;
+	createdAt: Date;
+}

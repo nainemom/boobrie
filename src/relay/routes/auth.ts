@@ -6,6 +6,7 @@ import { base58ToBytes, bytesToBase58 } from '@/shared/encoding';
 import type {
 	ChallengeRequest,
 	ChallengeResponse,
+	MeResponse,
 	VerifyRequest,
 	VerifyResponse,
 } from '@/shared/protocol';
@@ -106,40 +107,55 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 		return reply.send(body);
 	});
 
-	app.get('/auth/me', async (req, reply) => {
-		const authHeader = req.headers.authorization;
-		if (!authHeader?.startsWith('Bearer ')) {
-			return reply.code(401).send({ error: 'unauthorized' });
-		}
-		const token = authHeader.substring(7);
-		let claims: { address?: string };
-		try {
-			claims = app.jwt.verify<{ address?: string }>(token);
-		} catch {
-			return reply.code(401).send({ error: 'invalid token' });
-		}
+	app.get<{ Reply: MeResponse | { error: string } }>(
+		'/auth/me',
+		async (req, reply) => {
+			const authHeader = req.headers.authorization;
+			if (!authHeader?.startsWith('Bearer ')) {
+				return reply.code(401).send({ error: 'unauthorized' });
+			}
+			const token = authHeader.substring(7);
+			let claims: { address?: string };
+			try {
+				claims = app.jwt.verify<{ address?: string }>(token);
+			} catch {
+				return reply.code(401).send({ error: 'invalid token' });
+			}
 
-		if (!claims.address) {
-			return reply.code(401).send({ error: 'invalid token payload' });
-		}
+			if (!claims.address) {
+				return reply.code(401).send({ error: 'invalid token payload' });
+			}
 
-		let flag: Flag = 'margherita';
-		const userFlagRecords = await db
-			.select()
-			.from(userFlags)
-			.where(eq(userFlags.address, claims.address))
-			.limit(1);
+			const userRecords = await db
+				.select()
+				.from(users)
+				.where(eq(users.address, claims.address))
+				.limit(1);
 
-		if (userFlagRecords.length === 1) {
-			flag = userFlagRecords[0].flag;
-		}
+			if (userRecords.length === 0) {
+				return reply.code(404).send({ error: 'user not found' });
+			}
 
-		const features = FLAG_FEATURES[flag];
+			const user = userRecords[0];
 
-		return reply.send({
-			address: claims.address,
-			flag,
-			features,
-		});
-	});
+			let flag: Flag = 'margherita';
+			const userFlagRecords = await db
+				.select()
+				.from(userFlags)
+				.where(eq(userFlags.address, claims.address))
+				.limit(1);
+
+			if (userFlagRecords.length === 1) {
+				flag = userFlagRecords[0].flag;
+			}
+
+			const features = FLAG_FEATURES[flag];
+
+			return reply.send({
+				...user,
+				flag,
+				features,
+			});
+		},
+	);
 }

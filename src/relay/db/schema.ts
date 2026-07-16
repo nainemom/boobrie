@@ -6,7 +6,7 @@ import {
 	text,
 	timestamp,
 } from 'drizzle-orm/pg-core';
-import { FLAGS } from '@/shared/types';
+import { FLAGS, ROLES } from '@/shared/types';
 
 export const pendingMessages = pgTable(
 	'pending_messages',
@@ -27,6 +27,7 @@ export const pendingMessages = pgTable(
 
 export const users = pgTable('users', {
 	address: text('address').primaryKey(),
+	role: text('role', { enum: ROLES }).notNull().default('user'),
 	createdAt: timestamp('created_at', { withTimezone: true })
 		.notNull()
 		.defaultNow(),
