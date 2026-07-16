@@ -2,7 +2,6 @@ import {
 	bigserial,
 	index,
 	pgTable,
-	primaryKey,
 	text,
 	timestamp,
 } from 'drizzle-orm/pg-core';
@@ -28,6 +27,7 @@ export const pendingMessages = pgTable(
 export const users = pgTable('users', {
 	address: text('address').primaryKey(),
 	role: text('role', { enum: ROLES }).notNull().default('user'),
+	handle: text('handle').notNull().unique(),
 	createdAt: timestamp('created_at', { withTimezone: true })
 		.notNull()
 		.defaultNow(),
@@ -43,21 +43,17 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 		.defaultNow(),
 });
 
-export const userFlags = pgTable(
-	'user_flags',
-	{
-		address: text('address')
-			.primaryKey()
-			.references(() => users.address, { onDelete: 'cascade' }),
-		flag: text('flag', {
-			enum: FLAGS,
-		}).notNull(),
-		createdAt: timestamp('created_at', { withTimezone: true })
-			.notNull()
-			.defaultNow(),
-		updatedAt: timestamp('updated_at', { withTimezone: true })
-			.notNull()
-			.defaultNow(),
-	},
-	(table) => [primaryKey({ columns: [table.address, table.flag] })],
-);
+export const userFlags = pgTable('user_flags', {
+	address: text('address')
+		.primaryKey()
+		.references(() => users.address, { onDelete: 'cascade' }),
+	flag: text('flag', {
+		enum: FLAGS,
+	}).notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp('updated_at', { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});

@@ -12,7 +12,13 @@
 import type { Identity } from '@/shared/auth';
 import { openSeal } from '@/shared/crypto';
 import { bytesToBase58 } from '@/shared/encoding';
-import type { ChallengeResponse, VerifyResponse } from '@/shared/protocol';
+import type {
+	ChallengeResponse,
+	HandleResponse,
+	MeResponse,
+	ResolveHandleResponse,
+	VerifyResponse,
+} from '@/shared/protocol';
 
 /** A proven session: the token to present to the relay, and when it expires. */
 export interface RelaySession {
@@ -68,4 +74,71 @@ export function relayWsUrl(baseUrl: string, token: string): string {
 	url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
 	url.searchParams.set('token', token);
 	return url.toString();
+}
+
+export async function getMe(
+	baseUrl: string,
+	token: string,
+): Promise<MeResponse> {
+	const res = await fetch(new URL('/auth/me', baseUrl).toString(), {
+		headers: {
+			Authorization: `Bearer ${token}`,
+		},
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = ((await res.json()) as { error?: string }).error ?? '';
+		} catch {}
+		throw new Error(detail || `Request to /auth/me failed (${res.status})`);
+	}
+	return res.json() as Promise<MeResponse>;
+}
+
+export async function updateHandle(
+	baseUrl: string,
+	token: string,
+	handle: string,
+): Promise<HandleResponse> {
+	const res = await fetch(new URL('/auth/handle', baseUrl).toString(), {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			Authorization: `Bearer ${token}`,
+		},
+		body: JSON.stringify({ handle }),
+	});
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = ((await res.json()) as { error?: string }).error ?? '';
+		} catch {}
+		throw new Error(
+			detail || `Request to update handle failed (${res.status})`,
+		);
+	}
+	return res.json() as Promise<HandleResponse>;
+}
+
+export async function resolveHandle(
+	baseUrl: string,
+	token: string,
+	handle: string,
+): Promise<ResolveHandleResponse> {
+	const res = await fetch(
+		new URL(`/auth/handle/${encodeURIComponent(handle)}`, baseUrl).toString(),
+		{
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		},
+	);
+	if (!res.ok) {
+		let detail = '';
+		try {
+			detail = ((await res.json()) as { error?: string }).error ?? '';
+		} catch {}
+		throw new Error(detail || `Handle lookup failed (${res.status})`);
+	}
+	return res.json() as Promise<ResolveHandleResponse>;
 }

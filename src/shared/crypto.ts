@@ -195,3 +195,14 @@ export function randomBytes(length: number): Uint8Array {
 export function randomId(): string {
 	return crypto.randomUUID();
 }
+
+/** Compute a hexadecimal SHA-256 hash/fingerprint of a string. */
+export async function fingerprint(text: string): Promise<string> {
+	const msgUint8 = utf8ToBytes(text);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	const hashHex = hashArray
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+	return hashHex;
+}

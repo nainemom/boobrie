@@ -66,6 +66,22 @@ export interface MeResponse extends User {
 	features: Feature[];
 }
 
+/** `POST /auth/handle` body. */
+export interface HandleRequest {
+	handle: string;
+}
+
+/** `POST /auth/handle` reply. */
+export interface HandleResponse {
+	success: boolean;
+	handle: string;
+}
+
+/** `GET /auth/handle/:handle` reply. */
+export interface ResolveHandleResponse {
+	address: string;
+}
+
 // --- WebSocket messages (post-auth transport) ------------------------------
 
 export type ClientMsg =

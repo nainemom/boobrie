@@ -66,5 +66,6 @@ export type Role = (typeof ROLES)[number];
 export interface User {
 	address: string;
 	role: Role;
+	handle: string;
 	createdAt: Date;
 }

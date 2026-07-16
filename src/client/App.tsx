@@ -26,7 +26,14 @@ import {
 	subscribeToPush,
 	unsubscribeFromPush,
 } from './push';
-import { authenticate, type RelaySession, relayWsUrl } from './relay';
+import {
+	authenticate,
+	getMe,
+	type RelaySession,
+	relayWsUrl,
+	resolveHandle,
+	updateHandle,
+} from './relay';
 
 /** Where the relay lives. Set VITE_RELAY_URL in .env to point elsewhere. */
 const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
@@ -72,6 +79,11 @@ export function App() {
 	const [session, setSession] = useState<RelaySession | null>(null);
 	const [relayError, setRelayError] = useState<string | null>(null);
 
+	const [userHandle, setUserHandle] = useState<string>('');
+	const [handleInput, setHandleInput] = useState<string>('');
+	const [handleError, setHandleError] = useState<string | null>(null);
+	const [handleSuccess, setHandleSuccess] = useState<boolean>(false);
+
 	// Push: the relay hands us its VAPID key on `ready` (null if push is off).
 	const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null);
 	// Notification permission is a per-origin browser setting — independent of
@@ -115,6 +127,10 @@ export function App() {
 			setVapidPublicKey(null);
 			setPushStatus('idle');
 			setPushError(null);
+			setUserHandle('');
+			setHandleInput('');
+			setHandleError(null);
+			setHandleSuccess(false);
 
 			// Drop any chat state tied to the old identity.
 			setPeerInput('');
@@ -282,6 +298,15 @@ export function App() {
 			// 1. Prove key ownership over HTTP and get a session token.
 			const next = await authenticate(RELAY_URL, identity);
 			setSession(next);
+
+			try {
+				const me = await getMe(RELAY_URL, next.token);
+				setUserHandle(me.handle);
+				setHandleInput(me.handle);
+			} catch (err) {
+				console.error('Failed to fetch user profile:', err);
+			}
+
 			// 2. Open the token-gated socket. A rejected token never fires `open`.
 			setWsStatus('connecting');
 			const ws = new WebSocket(relayWsUrl(RELAY_URL, next.token));
@@ -303,6 +328,25 @@ export function App() {
 		closeSocket();
 		setWsStatus('closed');
 	}, [closeSocket]);
+
+	const changeHandleSubmit = useCallback(
+		async (event: FormEvent) => {
+			event.preventDefault();
+			if (!session) return;
+			setHandleError(null);
+			setHandleSuccess(false);
+			try {
+				const res = await updateHandle(RELAY_URL, session.token, handleInput);
+				if (res.success) {
+					setUserHandle(res.handle);
+					setHandleSuccess(true);
+				}
+			} catch (error) {
+				setHandleError(error instanceof Error ? error.message : String(error));
+			}
+		},
+		[session, handleInput],
+	);
 
 	// Step 1 of 2: ask for notification permission. Separate from subscribing so
 	// the two can be offered as distinct buttons — a user may hold permission
@@ -374,12 +418,31 @@ export function App() {
 	}, [wsStatus, vapidPublicKey, sendToRelay]);
 
 	const openChat = useCallback(
-		(event: FormEvent) => {
+		async (event: FormEvent) => {
 			event.preventDefault();
 			setChatError(null);
-			setPeer(peerInput.trim());
+			const target = peerInput.trim();
+			if (target.startsWith('@')) {
+				if (!session) {
+					setChatError('Cannot resolve handle: not authenticated.');
+					return;
+				}
+				const handle = target.slice(1);
+				if (handle === '') {
+					setChatError('Please enter a handle after the @ symbol.');
+					return;
+				}
+				try {
+					const res = await resolveHandle(RELAY_URL, session.token, handle);
+					setPeer(res.address);
+				} catch (error) {
+					setChatError(error instanceof Error ? error.message : String(error));
+				}
+			} else {
+				setPeer(target);
+			}
 		},
-		[peerInput],
+		[peerInput, session],
 	);
 
 	const probePeer = useCallback(() => {
@@ -607,6 +670,36 @@ export function App() {
 					<p role="alert">
 						<strong>Relay error:</strong> {relayError}
 					</p>
+				) : null}
+				{session ? (
+					<div>
+						<h3>User Handle</h3>
+						<p>
+							Current handle: <code>{userHandle || '(none)'}</code>
+						</p>
+						<form onSubmit={changeHandleSubmit}>
+							<label htmlFor="handle-input">Change Handle: </label>
+							<input
+								id="handle-input"
+								value={handleInput}
+								onChange={(event) => setHandleInput(event.target.value)}
+								placeholder="Enter new handle"
+							/>{' '}
+							<button type="submit" disabled={handleInput.trim() === ''}>
+								Save
+							</button>
+						</form>
+						{handleSuccess ? (
+							<p>
+								<strong>Success:</strong> Handle updated successfully!
+							</p>
+						) : null}
+						{handleError ? (
+							<p role="alert">
+								<strong>Error changing handle:</strong> {handleError}
+							</p>
+						) : null}
+					</div>
 				) : null}
 				{wsStatus === 'connected' ? (
 					vapidPublicKey ? (

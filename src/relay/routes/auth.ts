@@ -1,12 +1,16 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { randomBytes, seal } from '@/shared/crypto';
+import { HANDLE_REGEX, RESERVED_HANDLES } from '@/shared/constants';
+import { fingerprint, randomBytes, seal } from '@/shared/crypto';
 import { base58ToBytes, bytesToBase58 } from '@/shared/encoding';
 import type {
 	ChallengeRequest,
 	ChallengeResponse,
+	HandleRequest,
+	HandleResponse,
 	MeResponse,
+	ResolveHandleResponse,
 	VerifyRequest,
 	VerifyResponse,
 } from '@/shared/protocol';
@@ -90,9 +94,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 			return reply.code(401).send({ error: 'wrong response' });
 		}
 
+		const defaultHandle = await fingerprint(claims.address);
+
 		const inserted = await db
 			.insert(users)
-			.values({ address: claims.address })
+			.values({
+				address: claims.address,
+				handle: defaultHandle,
+			})
 			.onConflictDoNothing()
 			.returning({ address: users.address });
 
@@ -158,4 +167,114 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 			});
 		},
 	);
+
+	app.post<{ Body: HandleRequest; Reply: HandleResponse | { error: string } }>(
+		'/auth/handle',
+		async (req, reply) => {
+			const authHeader = req.headers.authorization;
+			if (!authHeader?.startsWith('Bearer ')) {
+				return reply.code(401).send({ error: 'unauthorized' });
+			}
+			const token = authHeader.substring(7);
+			let claims: { address?: string };
+			try {
+				claims = app.jwt.verify<{ address?: string }>(token);
+			} catch {
+				return reply.code(401).send({ error: 'invalid token' });
+			}
+
+			if (!claims.address) {
+				return reply.code(401).send({ error: 'invalid token payload' });
+			}
+
+			const newHandle = req.body?.handle;
+			if (typeof newHandle !== 'string' || newHandle.trim() === '') {
+				return reply.code(400).send({ error: 'handle is required' });
+			}
+
+			if (!HANDLE_REGEX.test(newHandle)) {
+				return reply.code(400).send({
+					error:
+						'handle must be lowercase, start/end with an alphanumeric character, and only contain single hyphens or underscores (no consecutive delimiters)',
+				});
+			}
+
+			const normalizedHandle = newHandle.trim().toLowerCase();
+			if (RESERVED_HANDLES.includes(normalizedHandle as never)) {
+				return reply
+					.code(400)
+					.send({ error: 'handle is reserved and cannot be used' });
+			}
+
+			// Check feature flags
+			let flag: Flag = 'margherita';
+			const userFlagRecords = await db
+				.select()
+				.from(userFlags)
+				.where(eq(userFlags.address, claims.address))
+				.limit(1);
+
+			if (userFlagRecords.length === 1) {
+				flag = userFlagRecords[0].flag;
+			}
+
+			const features = FLAG_FEATURES[flag];
+			if (!features.includes('handle')) {
+				return reply
+					.code(403)
+					.send({ error: 'Forbidden: handle feature flag not enabled' });
+			}
+
+			// Check uniqueness
+			const existing = await db
+				.select()
+				.from(users)
+				.where(eq(users.handle, newHandle))
+				.limit(1);
+			if (existing.length > 0) {
+				return reply.code(409).send({ error: 'handle already taken' });
+			}
+
+			// Update
+			await db
+				.update(users)
+				.set({ handle: newHandle })
+				.where(eq(users.address, claims.address));
+
+			return reply.send({ success: true, handle: newHandle });
+		},
+	);
+
+	app.get<{
+		Params: { handle: string };
+		Reply: ResolveHandleResponse | { error: string };
+	}>('/auth/handle/:handle', async (req, reply) => {
+		const authHeader = req.headers.authorization;
+		if (!authHeader?.startsWith('Bearer ')) {
+			return reply.code(401).send({ error: 'unauthorized' });
+		}
+		const token = authHeader.substring(7);
+		try {
+			app.jwt.verify(token);
+		} catch {
+			return reply.code(401).send({ error: 'invalid token' });
+		}
+
+		const handle = req.params.handle;
+		if (typeof handle !== 'string' || handle === '') {
+			return reply.code(400).send({ error: 'handle is required' });
+		}
+
+		const userRecords = await db
+			.select()
+			.from(users)
+			.where(eq(users.handle, handle.toLowerCase()))
+			.limit(1);
+
+		if (userRecords.length === 0) {
+			return reply.code(404).send({ error: 'user not found' });
+		}
+
+		return reply.send({ address: userRecords[0].address });
+	});
 }
