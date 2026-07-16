@@ -2,9 +2,11 @@ import {
 	bigserial,
 	index,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 } from 'drizzle-orm/pg-core';
+import { FLAGS } from '@/shared/types';
 
 export const pendingMessages = pgTable(
 	'pending_messages',
@@ -39,3 +41,22 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 		.notNull()
 		.defaultNow(),
 });
+
+export const userFlags = pgTable(
+	'user_flags',
+	{
+		address: text('address')
+			.primaryKey()
+			.references(() => users.address, { onDelete: 'cascade' }),
+		flag: text('flag', {
+			enum: FLAGS,
+		}).notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [primaryKey({ columns: [table.address, table.flag] })],
+);

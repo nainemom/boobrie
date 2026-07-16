@@ -3,9 +3,15 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { log } from '@/shared/log';
 import type { ClientMsg, ServerMsg } from '@/shared/protocol';
-import type { EncryptedPayload, PushSubscriptionJson } from '@/shared/types';
+import {
+	type EncryptedPayload,
+	type Feature,
+	FLAG_FEATURES,
+	type Flag,
+	type PushSubscriptionJson,
+} from '@/shared/types';
 import { db } from '../db/index.ts';
-import { pendingMessages } from '../db/schema.ts';
+import { pendingMessages, userFlags } from '../db/schema.ts';
 import { isOnline, register, sendTo, unregister } from '../hub.ts';
 import {
 	deleteSubscription,
@@ -27,6 +33,24 @@ interface WsQuery {
 
 function send(socket: WebSocket, msg: ServerMsg): void {
 	socket.send(JSON.stringify(msg));
+}
+
+async function getFeaturesForUser(address: string): Promise<Feature[]> {
+	const userFlagRecords = await db
+		.select()
+		.from(userFlags)
+		.where(eq(userFlags.address, address));
+
+	const flags =
+		userFlagRecords.length > 0 ? userFlagRecords.map((r) => r.flag) : ['free'];
+	const featuresSet = new Set<Feature>();
+	for (const flag of flags) {
+		const flagFeatures = FLAG_FEATURES[flag as Flag] || [];
+		for (const f of flagFeatures) {
+			featuresSet.add(f);
+		}
+	}
+	return Array.from(featuresSet);
 }
 
 function isEncryptedPayload(value: unknown): value is EncryptedPayload {
@@ -109,6 +133,15 @@ async function handleMessage(
 	switch (msg.t) {
 		case 'msg': {
 			// `from` is the authenticated socket, never a client-supplied value.
+			const features = await getFeaturesForUser(address);
+			if (!features.includes('message')) {
+				send(socket, {
+					t: 'error',
+					code: 'unauthorized',
+					message: 'direct messages are not enabled for your account',
+				});
+				break;
+			}
 			// Store first (the delivery guarantee), then hand off if online.
 			await db.insert(pendingMessages).values({
 				recipient: msg.to,
@@ -123,11 +156,14 @@ async function handleMessage(
 				enc: msg.enc,
 			});
 			if (!delivered) {
-				void notify(msg.to, {
-					type: 'message',
-					from: address,
-					id: msg.id,
-				}).catch((err) => log('warn', 'push notify failed', msg.to, err));
+				const recipientFeatures = await getFeaturesForUser(msg.to);
+				if (recipientFeatures.includes('notifications')) {
+					void notify(msg.to, {
+						type: 'message',
+						from: address,
+						id: msg.id,
+					}).catch((err) => log('warn', 'push notify failed', msg.to, err));
+				}
 			}
 			break;
 		}
@@ -152,6 +188,15 @@ async function handleMessage(
 			break;
 		}
 		case 'push': {
+			const features = await getFeaturesForUser(address);
+			if (!features.includes('notifications')) {
+				send(socket, {
+					t: 'error',
+					code: 'unauthorized',
+					message: 'push notifications are not enabled for your account tier',
+				});
+				break;
+			}
 			// Replace this address's single push target with the caller's device.
 			await saveSubscription(address, msg.subscription);
 			log('info', 'ws push subscription registered', address);

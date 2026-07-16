@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { randomBytes, seal } from '@/shared/crypto';
 import { base58ToBytes, bytesToBase58 } from '@/shared/encoding';
@@ -8,9 +9,10 @@ import type {
 	VerifyRequest,
 	VerifyResponse,
 } from '@/shared/protocol';
+import { FLAG_FEATURES, type Flag } from '@/shared/types';
 import { config } from '../config.ts';
 import { db } from '../db/index.ts';
-import { users } from '../db/schema.ts';
+import { userFlags, users } from '../db/schema.ts';
 
 const NONCE_BYTES = 32;
 
@@ -102,5 +104,42 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 			created: inserted.length > 0,
 		};
 		return reply.send(body);
+	});
+
+	app.get('/auth/me', async (req, reply) => {
+		const authHeader = req.headers.authorization;
+		if (!authHeader?.startsWith('Bearer ')) {
+			return reply.code(401).send({ error: 'unauthorized' });
+		}
+		const token = authHeader.substring(7);
+		let claims: { address?: string };
+		try {
+			claims = app.jwt.verify<{ address?: string }>(token);
+		} catch {
+			return reply.code(401).send({ error: 'invalid token' });
+		}
+
+		if (!claims.address) {
+			return reply.code(401).send({ error: 'invalid token payload' });
+		}
+
+		let flag: Flag = 'margherita';
+		const userFlagRecords = await db
+			.select()
+			.from(userFlags)
+			.where(eq(userFlags.address, claims.address))
+			.limit(1);
+
+		if (userFlagRecords.length === 1) {
+			flag = userFlagRecords[0].flag;
+		}
+
+		const features = FLAG_FEATURES[flag];
+
+		return reply.send({
+			address: claims.address,
+			flag,
+			features,
+		});
 	});
 }

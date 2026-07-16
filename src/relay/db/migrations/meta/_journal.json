@@ -22,6 +22,13 @@
       "when": 1784151081241,
       "tag": "0002_legal_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784163802929,
+      "tag": "0003_groovy_alice",
+      "breakpoints": true
     }
   ]
 }
