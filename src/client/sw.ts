@@ -18,7 +18,7 @@
 import { defaultCache } from '@serwist/vite/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
 import { Serwist } from 'serwist';
-import type { PushPayload } from '@/shared/type';
+import type { PushPayload } from '../shared/types';
 
 declare global {
 	interface WorkerGlobalScope extends SerwistGlobalConfig {

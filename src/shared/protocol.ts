@@ -11,7 +11,6 @@
 import { z } from 'zod';
 import { HANDLE_REGEX, RESERVED_HANDLES } from './constants.ts';
 import type {
-	EncryptedPayload,
 	Feature,
 	Flag,
 	PushSubscriptionJson,
@@ -159,33 +158,3 @@ export interface PresenceResponse {
 	address: string;
 	online: boolean;
 }
-
-// --- WebSocket messages (legacy; consumed by the client until it moves to SSE) ---
-
-export type ClientMsg =
-	/** Send an end-to-end encrypted message to a peer address. */
-	| { t: 'msg'; to: string; id: string; enc: EncryptedPayload }
-	/** Confirm receipt of a `msg` so the relay can drop its stored copy. */
-	| { t: 'ack'; id: string }
-	/** Ask the relay to (re)deliver everything still queued for this address. */
-	| { t: 'flush' }
-	/** Ask whether an address currently has a connected device. */
-	| { t: 'probe'; address: string };
-
-/** Reasons a request can fail. */
-export type ErrorCode = 'unauthorized' | 'bad-request';
-
-export type ServerMsg =
-	/** Connected and bound to `address`. Queued offline messages follow.
-	 * `vapidPublicKey` is present only when the relay has Web Push configured;
-	 * the client uses it to subscribe this device for offline notifications. */
-	| { t: 'ready'; address: string; vapidPublicKey?: string }
-	/** Another device took over this address; this session is closing. */
-	| { t: 'kicked' }
-	/** Something went wrong. */
-	| { t: 'error'; code: ErrorCode; message: string }
-	/** An incoming end-to-end encrypted message. `from` is the sender's address
-	 * (public key), which the recipient uses to derive the shared key. */
-	| { t: 'msg'; from: string; id: string; enc: EncryptedPayload }
-	/** Presence answer to a `probe`. */
-	| { t: 'presence'; address: string; online: boolean };
