@@ -1,19 +1,14 @@
-import {
-	bigserial,
-	index,
-	pgTable,
-	text,
-	timestamp,
-} from 'drizzle-orm/pg-core';
+import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { FLAGS, ROLES } from '@/shared/types';
 
 export const pendingMessages = pgTable(
 	'pending_messages',
 	{
-		id: bigserial('id', { mode: 'number' }).primaryKey(),
-		recipient: text('recipient').notNull(),
+		id: text('id')
+			.primaryKey()
+			.$default(() => crypto.randomUUID()),
 		sender: text('sender').notNull(),
-		messageId: text('message_id').notNull(),
+		recipient: text('recipient').notNull(),
 		payload: text('payload').notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true })
 			.notNull()
@@ -57,3 +52,19 @@ export const userFlags = pgTable('user_flags', {
 		.notNull()
 		.defaultNow(),
 });
+
+// One row per live SSE connection (a device). Presence across pods is derived
+// from these rows: an address is online while at least one recent row exists.
+export const sessions = pgTable(
+	'sessions',
+	{
+		id: text('id')
+			.primaryKey()
+			.$default(() => crypto.randomUUID()),
+		address: text('address').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [index('sessions_address_idx').on(table.address)],
+);

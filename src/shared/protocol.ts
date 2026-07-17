@@ -1,37 +1,31 @@
 /**
- * The relay protocol.
+ * The relay protocol — the wire contract shared by client and relay.
  *
- * Auth happens *outside* the WebSocket, over plain HTTP, so the socket only ever
- * opens for someone who has already proven they hold the private key:
- *
- *   client -> POST /auth/challenge   sends its address (public key)
- *   relay  -> ChallengeResponse      a nonce sealed to that key + a signed ticket
- *   client -> POST /auth/verify      the decrypted nonce + the ticket
- *   relay  -> VerifyResponse         a signed session token
- *   client -> GET  /ws?token=…       connects; the relay rejects a bad token
- *
- * There is no username and no key directory: the address *is* the public key, so
- * anyone who has it can already encrypt to you. The relay is a pure transport.
- *
- * Everything below is plain JSON. The HTTP shapes are request/response bodies;
- * the WebSocket shapes are text frames, each tagged with a `t` discriminant.
+ * Request bodies, params, and queries are zod schemas with their types inferred,
+ * so both sides work from one source of truth: the relay validates inbound
+ * requests with them, and the client can reuse the same schemas/types to build
+ * requests. Responses are the plain shapes the relay produces and the client
+ * consumes.
  */
 
+import { z } from 'zod';
+import { HANDLE_REGEX, RESERVED_HANDLES } from './constants.ts';
 import type {
 	EncryptedPayload,
 	Feature,
 	Flag,
 	PushSubscriptionJson,
+	Role,
 	SealedBox,
-	User,
 } from './types.ts';
 
 // --- HTTP auth handshake ---------------------------------------------------
 
 /** `POST /auth/challenge` body: the address (public key) asking to log in. */
-export interface ChallengeRequest {
-	address: string;
-}
+export const challengeSchema = z.object({
+	address: z.string().min(1, 'address is required'),
+});
+export type ChallengeRequest = z.infer<typeof challengeSchema>;
 
 /** `POST /auth/challenge` reply. */
 export interface ChallengeResponse {
@@ -44,15 +38,15 @@ export interface ChallengeResponse {
 }
 
 /** `POST /auth/verify` body. */
-export interface VerifyRequest {
-	challengeToken: string;
-	/** The nonce the client recovered from {@link ChallengeResponse.box}, base58. */
-	response: string;
-}
+export const verifySchema = z.object({
+	challengeToken: z.string().min(1, 'challengeToken and response are required'),
+	response: z.string().min(1, 'challengeToken and response are required'),
+});
+export type VerifyRequest = z.infer<typeof verifySchema>;
 
-/** `POST /auth/verify` reply: the session token that opens the WebSocket. */
+/** `POST /auth/verify` reply: the session token that opens the message stream. */
 export interface VerifyResponse {
-	/** Signed session token; present it as `?token=` when opening the socket. */
+	/** Signed session token; present it as a `Bearer` token on later requests. */
 	token: string;
 	/** Epoch millis when the token stops being accepted. */
 	expiresAt: number;
@@ -61,40 +55,122 @@ export interface VerifyResponse {
 }
 
 /** `GET /auth/me` reply. */
-export interface MeResponse extends User {
+export interface MeResponse {
+	address: string;
+	role: Role;
+	handle: string;
+	fingerprint: string;
 	flag: Flag;
 	features: Feature[];
+	/** The device push subscription on record, or null if none is registered. */
+	pushSubscription: PushSubscriptionJson | null;
+	/** The relay's Web Push VAPID public key, or null when push is not configured.
+	 * The client needs it to subscribe this device before `POST /auth/push`. */
+	vapidPublicKey: string | null;
+	createdAt: Date;
 }
 
-/** `POST /auth/handle` body. */
-export interface HandleRequest {
-	handle: string;
-}
+/** A browser Web Push subscription — the `PushSubscription.toJSON()` shape. */
+export const pushSubscriptionSchema = z
+	.object({
+		endpoint: z.string().min(1),
+		keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
+	})
+	.nullable();
 
-/** `POST /auth/handle` reply. */
-export interface HandleResponse {
-	success: boolean;
-	handle: string;
-}
+/** `PUT /auth/me/push-subscription` body. */
+export const editPushSubscriptionSchema = z.object({
+	pushSubscription: pushSubscriptionSchema,
+});
+export type EditPushSubscriptionRequest = z.infer<
+	typeof editPushSubscriptionSchema
+>;
 
-/** `GET /auth/handle/:handle` reply. */
-export interface ResolveHandleResponse {
+/** `PUT /auth/me/push-subscription` reply. */
+export type EditPushSubscriptionResponse = EditPushSubscriptionRequest;
+
+/** `PUT /auth/me/handle` body. */
+export const editHandleSchema = z.object({
+	handle: z
+		.string()
+		.min(1)
+		.regex(
+			HANDLE_REGEX,
+			'handle must be lowercase, start/end with an alphanumeric character, and only contain single hyphens or underscores (no consecutive delimiters)',
+		)
+		.refine(
+			(handle) => !RESERVED_HANDLES.includes(handle as never),
+			'handle is reserved and cannot be used',
+		),
+});
+export type EditHandleRequest = z.infer<typeof editHandleSchema>;
+
+/** `PUT /auth/me/handle` reply. */
+export type EditHandleResponse = EditHandleRequest;
+
+// --- Users -----------------------------------------------------------------
+
+/** `GET /users/:user` params — an address, or `@handle`. */
+export const userParamsSchema = z.object({
+	user: z.string().min(1, 'user param is required'),
+});
+export type UserParams = z.infer<typeof userParamsSchema>;
+
+/** `GET /users/:user` reply — another user's public profile. */
+export interface UserResponse {
 	address: string;
+	handle: string;
+	fingerprint: string;
+	createdAt: Date;
 }
 
-// --- WebSocket messages (post-auth transport) ------------------------------
+// --- Messaging (SSE receive + HTTP send) -----------------------------------
+
+/** `POST /messages` body — an end-to-end encrypted message for `recipient`. */
+export const sendMessageSchema = z.object({
+	recipient: z.string().min(1, 'recipient and payload are required'),
+	payload: z.string().min(1, 'recipient and payload are required'),
+});
+export type SendMessageRequest = z.infer<typeof sendMessageSchema>;
+
+/** `DELETE /messages/:id` params. */
+export const messageParamsSchema = z.object({
+	id: z.string().min(1, 'message id is required'),
+});
+export type MessageParams = z.infer<typeof messageParamsSchema>;
+
+/** `GET /presence/:address` params. */
+export const presenceParamsSchema = z.object({
+	address: z.string().min(1, 'address is required'),
+});
+export type PresenceParams = z.infer<typeof presenceParamsSchema>;
+
+/** A queued or freshly-sent message, as streamed over `GET /messages`. */
+export interface Message {
+	id: string;
+	sender: string;
+	payload: string;
+	/** ISO-8601 timestamp. */
+	createdAt: string;
+}
+
+/** `GET /presence/:address` reply. */
+export interface PresenceResponse {
+	address: string;
+	online: boolean;
+}
+
+// --- WebSocket messages (legacy; consumed by the client until it moves to SSE) ---
 
 export type ClientMsg =
 	/** Send an end-to-end encrypted message to a peer address. */
 	| { t: 'msg'; to: string; id: string; enc: EncryptedPayload }
 	/** Confirm receipt of a `msg` so the relay can drop its stored copy. */
 	| { t: 'ack'; id: string }
+	/** Ask the relay to (re)deliver everything still queued for this address. */
+	| { t: 'flush' }
 	/** Ask whether an address currently has a connected device. */
-	| { t: 'probe'; address: string }
-	/** Register this device for offline Web Push notifications. */
-	| { t: 'push'; subscription: PushSubscriptionJson }
-	/** Forget this address's push target (the opposite of `push`). */
-	| { t: 'unpush' };
+	| { t: 'probe'; address: string };
 
 /** Reasons a request can fail. */
 export type ErrorCode = 'unauthorized' | 'bad-request';

@@ -12,6 +12,7 @@ export const AUTH_KDF_INFO = 'viska-auth-challenge';
 export const RESERVED_HANDLES = [
 	'admin',
 	'administrator',
+	'me',
 	'system',
 	'support',
 	'moderator',

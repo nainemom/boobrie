@@ -63,9 +63,6 @@ export const ROLES = ['user', 'admin'] as const;
 
 export type Role = (typeof ROLES)[number];
 
-export interface User {
+export interface AuthClaims {
 	address: string;
-	role: Role;
-	handle: string;
-	createdAt: Date;
 }

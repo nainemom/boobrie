@@ -1,27 +1,78 @@
-import cors from '@fastify/cors';
-import jwt from '@fastify/jwt';
-import websocket from '@fastify/websocket';
-import createFastifyApp from 'fastify';
+import { H3, handleCors, serve } from 'h3';
 import { log } from '@/shared/log.ts';
 import { config } from './config.ts';
 import { initDb } from './db/index.ts';
-import { initPush } from './push.ts';
-import { authRoutes } from './routes/auth.ts';
-import { wsRoutes } from './routes/ws.ts';
+import {
+	challengeHandler,
+	editHandleHandler,
+	getMeHandler,
+	requireAuth,
+	verifyHandler,
+} from './services/auth.ts';
+import { requireFeature } from './services/featureFlag.ts';
+import {
+	presenceHandler,
+	readMessageHandler,
+	sendMessageHandler,
+	streamMessagesHandler,
+	watchMessages,
+} from './services/messaging.ts';
+import { editPushSubscriptionHandler, initPush } from './services/push.ts';
+import { getUserHandler } from './services/user.ts';
 
 async function main() {
-	const app = createFastifyApp({ logger: false });
-
 	await initDb();
 	initPush();
+	await watchMessages();
 
-	await app.register(cors, { origin: config.corsOrigin });
-	await app.register(jwt, { secret: config.jwtSecret });
-	await app.register(websocket);
-	await app.register(authRoutes);
-	await app.register(wsRoutes);
+	// Centralised error handling: every error — zod validation, an explicit
+	// HTTPError, an unmatched route, or something unexpected — becomes a
+	// `{ error }` JSON body with the right status.
+	const app = new H3({
+		onError: (error, event) => {
+			event.res.status = error.status;
+			if (error.unhandled) {
+				log('error', 'unhandled error', error.cause ?? error);
+				return { error: 'internal server error' };
+			}
+			const issues = (error.data as { issues?: { message?: string }[] })
+				?.issues;
+			return { error: issues?.[0]?.message ?? error.message };
+		},
+	});
 
-	await app.listen({ port: config.port, host: config.host });
+	// CORS for every route; preflight requests are answered here and stop.
+	app.use((event) => {
+		const cors = handleCors(event, {
+			origin: config.corsOrigin === true ? '*' : [config.corsOrigin],
+			methods: '*',
+		});
+		if (cors !== false) return cors;
+	});
+
+	app.post('/auth/challenge', challengeHandler);
+	app.post('/auth/verify', verifyHandler);
+	app.get('/auth/me', getMeHandler, { middleware: [requireAuth] });
+	app.patch('/auth/me/handle', editHandleHandler, {
+		middleware: [requireAuth],
+	});
+	app.put('/auth/me/push-subscription', editPushSubscriptionHandler, {
+		middleware: [requireAuth, requireFeature('notifications')],
+	});
+	app.put('/auth/me/handle', editPushSubscriptionHandler, {
+		middleware: [requireAuth, requireFeature('handle')],
+	});
+	app.get('/messages', streamMessagesHandler, { middleware: [requireAuth] });
+	app.post('/messages', sendMessageHandler, {
+		middleware: [requireAuth, requireFeature('message')],
+	});
+	app.delete('/messages/:id', readMessageHandler, {
+		middleware: [requireAuth],
+	});
+	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
+	app.get('/users/:user', getUserHandler, { middleware: [requireAuth] });
+
+	serve(app, { port: config.port, hostname: config.host });
 
 	log('info', `relay listening on http://${config.host}:${config.port}`);
 }

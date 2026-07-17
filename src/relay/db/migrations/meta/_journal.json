@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1784145708909,
-      "tag": "0000_equal_payback",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1784148804280,
-      "tag": "0001_normal_imperial_guard",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1784151081241,
-      "tag": "0002_legal_longshot",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1784163802929,
-      "tag": "0003_groovy_alice",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1784164539548,
-      "tag": "0004_talented_post",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1784197056232,
-      "tag": "0005_slim_speed",
+      "when": 1784248340832,
+      "tag": "0000_marvelous_spot",
       "breakpoints": true
     }
   ]
