@@ -54,7 +54,12 @@ export const userFlags = pgTable('user_flags', {
 });
 
 // One row per live SSE connection (a device). Presence across pods is derived
-// from these rows: an address is online while at least one recent row exists.
+// from these rows: an address is online while at least one recently-touched
+// row exists. `createdAt` is stamped at connect and then re-stamped by that
+// connection's own heartbeat — it's a "last seen alive" timestamp, not just a
+// creation time, so a connection that dies without cleanly closing (crash,
+// dropped network, a server restart that wipes the in-memory tracking) still
+// ages out quickly instead of leaving its recipient falsely "online".
 export const sessions = pgTable(
 	'sessions',
 	{

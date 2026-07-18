@@ -33,12 +33,15 @@ import {
 	sendMessageSchema,
 } from '@/shared/protocol';
 import { sleep } from '@/shared/utils.ts';
-import { config } from '../config.ts';
 import { createListener, db } from '../db/index.ts';
 import { pendingMessages, sessions } from '../db/schema.ts';
 import { notify } from './push.ts';
 
 const CHANNEL = 'chat';
+/** How often to nudge each open stream so it flushes and stays visibly alive. */
+const HEARTBEAT_MS = 20_000;
+/** How long a session counts as "online" without a heartbeat touching it. */
+const PRESENCE_TTL_MS = HEARTBEAT_MS * 3;
 
 const connections = new Map<string, ReturnType<typeof createEventStream>>();
 
@@ -49,9 +52,9 @@ const toMessage = (row: typeof pendingMessages.$inferSelect): Message => ({
 	createdAt: row.createdAt.toISOString(),
 });
 
-/** True while `address` has at least one recent live session on some pod. */
+/** True while address has at least 1 recently-heartbeated session on some pod. */
 const isOnline = async (address: string): Promise<boolean> => {
-	const fresh = new Date(Date.now() - config.sessionTtlMs);
+	const fresh = new Date(Date.now() - PRESENCE_TTL_MS);
 	const [row] = await db
 		.select({ id: sessions.id })
 		.from(sessions)
@@ -201,12 +204,24 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 		.values({ address })
 		.returning({ id: sessions.id });
 
+	void stream.pushComment('connected');
+	const heartbeat = setInterval(() => {
+		void stream.pushComment('ping');
+		db.update(sessions)
+			.set({ createdAt: new Date() })
+			.where(eq(sessions.id, session.id))
+			.catch((err) =>
+				log('warn', 'session heartbeat touch failed', address, err),
+			);
+	}, HEARTBEAT_MS);
+
 	stream.onClosed(async () => {
+		clearInterval(heartbeat);
 		connections.delete(address);
 		await db.delete(sessions).where(eq(sessions.id, session.id));
 	});
 
-	await deliverQueued(address);
+	void deliverQueued(address);
 
 	return stream.send();
 });

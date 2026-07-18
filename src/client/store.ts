@@ -147,12 +147,22 @@ function handleIncoming(
 // actions below.
 function reassertPushSubscription(session: RelaySession): void {
 	void existingPushSubscription().then((subscription) => {
-		if (subscription) {
-			void editPushSubscription(RELAY_URL, session.token, subscription);
-			set({ pushStatus: 'subscribed' });
-		} else {
+		if (!subscription) {
 			set({ pushStatus: 'idle' });
+			return;
 		}
+		editPushSubscription(RELAY_URL, session.token, subscription)
+			.then(() => set({ pushStatus: 'subscribed' }))
+			.catch((error) => {
+				// The browser still holds its subscription, but the relay didn't
+				// record it — reflect that instead of claiming we're subscribed
+				// when the relay has nothing on file to push to.
+				console.error('Failed to reassert push subscription:', error);
+				set({
+					pushStatus: 'error',
+					pushError: error instanceof Error ? error.message : String(error),
+				});
+			});
 	});
 }
 
