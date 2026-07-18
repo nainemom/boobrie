@@ -219,6 +219,13 @@ export async function loginWithNewIdentity(): Promise<Identity> {
 	return identity;
 }
 
+/** Commit an already-created identity as the session. Used when the caller has
+ * generated a draft identity, let the user preview it (e.g. its signature), and
+ * only now — on accept — wants to authenticate with the relay. */
+export async function loginWithIdentity(identity: Identity): Promise<void> {
+	await login(identity);
+}
+
 /** Rebuild an account from its 12 words and log in with it. Throws if the words
  * aren't a valid recovery phrase or the relay rejects the proof. */
 export async function loginWithMnemonic(mnemonic: string): Promise<void> {
