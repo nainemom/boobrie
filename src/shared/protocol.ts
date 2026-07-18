@@ -109,13 +109,19 @@ export type EditHandleResponse = EditHandleRequest;
 
 // --- Users -----------------------------------------------------------------
 
-/** `GET /users/:user` params — an address, or `@handle`. */
+/** `GET /users/:address` params — an address, or `@handle`. */
+export const redirectUserSchema = z.object({
+	handle: z.string().min(1, 'handle param is required'),
+});
+export type RecirectUserParams = z.infer<typeof redirectUserSchema>;
+
+/** `GET /users/:address` params — an address, or `@handle`. */
 export const userParamsSchema = z.object({
-	user: z.string().min(1, 'user param is required'),
+	address: z.string().min(1, 'address param is required'),
 });
 export type UserParams = z.infer<typeof userParamsSchema>;
 
-/** `GET /users/:user` reply — another user's public profile. */
+/** `GET /users/:address` reply — another user's public profile. */
 export interface UserResponse {
 	address: string;
 	handle: string;

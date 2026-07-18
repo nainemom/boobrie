@@ -113,16 +113,22 @@ export async function updateHandle(
 	});
 }
 
-/** Look up a user by address or `@handle`. */
+export async function getHandle(
+	baseUrl: string,
+	token: string,
+	handle: string,
+): Promise<UserResponse> {
+	const url = new URL(`/handles/${encodeURIComponent(handle)}`, baseUrl);
+	return request(url.toString(), { headers: authHeaders(token) });
+}
+
 export async function getUser(
 	baseUrl: string,
 	token: string,
-	user: string,
+	address: string,
 ): Promise<UserResponse> {
-	return request(
-		new URL(`/users/${encodeURIComponent(user)}`, baseUrl).toString(),
-		{ headers: authHeaders(token) },
-	);
+	const url = new URL(`/users/${encodeURIComponent(address)}`, baseUrl);
+	return request(url.toString(), { headers: authHeaders(token) });
 }
 
 export async function editPushSubscription(

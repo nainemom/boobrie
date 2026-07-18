@@ -18,7 +18,7 @@ import {
 	watchMessages,
 } from './services/messaging.ts';
 import { editPushSubscriptionHandler, initPush } from './services/push.ts';
-import { getUserHandler } from './services/user.ts';
+import { getUserHandler, redirectUserHandler } from './services/user.ts';
 
 async function main() {
 	await initDb();
@@ -70,7 +70,10 @@ async function main() {
 		middleware: [requireAuth],
 	});
 	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
-	app.get('/users/:user', getUserHandler, { middleware: [requireAuth] });
+	app.get('/handles/:handle', redirectUserHandler('/users/:address'), {
+		middleware: [requireAuth],
+	});
+	app.get('/users/:address', getUserHandler, { middleware: [requireAuth] });
 
 	serve(app, { port: config.port, hostname: config.host });
 

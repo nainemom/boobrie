@@ -14,7 +14,7 @@ export function ConversationsPage() {
 		const target = input.trim();
 		if (target === '') return;
 		setInput('');
-		navigate(`/${target}`);
+		navigate(`/${target.startsWith('@') ? target.slice(1) : `i/${target}`}`);
 	};
 
 	return (
@@ -25,7 +25,7 @@ export function ConversationsPage() {
 				<ul>
 					{store.conversations.map((peer) => (
 						<li key={peer}>
-							<Link href={`/${peer}`}>{peer}</Link>
+							<Link href={`/i/${peer}`}>{peer}</Link>
 						</li>
 					))}
 				</ul>

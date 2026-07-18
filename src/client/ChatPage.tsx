@@ -5,7 +5,7 @@ import { getUser } from './relay';
 import { addConversation, RELAY_URL, sendChat, useStore } from './store';
 
 export function ChatPage() {
-	const { user } = useParams<{ user: string }>();
+	const { address } = useParams<{ address: string }>();
 	const store = useStore();
 
 	const [profile, setProfile] = useState<UserResponse | null>(null);
@@ -17,7 +17,7 @@ export function ChatPage() {
 		if (!store.session) return;
 		setProfile(null);
 		setProfileError(null);
-		getUser(RELAY_URL, store.session.token, user)
+		getUser(RELAY_URL, store.session.token, address)
 			.then((res) => {
 				setProfile(res);
 				addConversation(res.address);
@@ -25,7 +25,7 @@ export function ChatPage() {
 			.catch((error) =>
 				setProfileError(error instanceof Error ? error.message : String(error)),
 			);
-	}, [store.session, user]);
+	}, [store.session, address]);
 
 	if (!store.identity || !store.session) return <Redirect to="/auth" />;
 
@@ -50,7 +50,9 @@ export function ChatPage() {
 			<p>
 				<Link href="/conversations">Back to conversations</Link>
 			</p>
-			<h1>{user}</h1>
+			<h1>
+				{address} (${profile?.handle})
+			</h1>
 
 			{profileError ? (
 				<p role="alert">
