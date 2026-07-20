@@ -17,6 +17,8 @@ import { openSeal } from '@/shared/crypto';
 import { bytesToBase58 } from '@/shared/encoding';
 import type {
 	ChallengeResponse,
+	CreateDepositRequest,
+	CreateDepositResponse,
 	EditHandleRequest,
 	EditHandleResponse,
 	EditPushSubscriptionRequest,
@@ -180,6 +182,21 @@ export async function getPresence(
 		new URL(`/presence/${encodeURIComponent(address)}`, baseUrl).toString(),
 		{ headers: authHeaders(token) },
 	);
+}
+
+/** Open a USDT deposit for `amount` (USD); returns where and how much to send.
+ * The account becomes paid once the provider confirms the transfer on-chain
+ * (see `paid`/`paidUntil` on `getMe`). */
+export async function createDeposit(
+	baseUrl: string,
+	token: string,
+	amount: number,
+): Promise<CreateDepositResponse> {
+	return request(new URL('/billing/deposit', baseUrl).toString(), {
+		method: 'POST',
+		headers: jsonHeaders(token),
+		body: JSON.stringify({ amount } satisfies CreateDepositRequest),
+	});
 }
 
 export interface MessageStream {

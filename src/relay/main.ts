@@ -9,6 +9,7 @@ import {
 	requireAuth,
 	verifyHandler,
 } from './services/auth.ts';
+import { createDepositHandler, ipnHandler } from './services/billing.ts';
 import { requireFeature } from './services/featureFlag.ts';
 import {
 	presenceHandler,
@@ -53,6 +54,8 @@ async function main() {
 	app.post('/auth/challenge', challengeHandler);
 	app.post('/auth/verify', verifyHandler);
 	app.get('/auth/me', getMeHandler, { middleware: [requireAuth] });
+	// Setting your handle is free; it only *resolves* publicly (GET /handles/:handle)
+	// while you keep the `handle` feature funded.
 	app.patch('/auth/me/handle', editHandleHandler, {
 		middleware: [requireAuth],
 	});
@@ -70,6 +73,11 @@ async function main() {
 		middleware: [requireAuth],
 	});
 	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
+	app.post('/billing/deposit', createDepositHandler, {
+		middleware: [requireAuth],
+	});
+	// Provider callback — no session; authenticated by its HMAC signature instead.
+	app.post('/billing/ipn', ipnHandler);
 	app.get('/handles/:handle', redirectUserHandler('/users/:address'), {
 		middleware: [requireAuth],
 	});

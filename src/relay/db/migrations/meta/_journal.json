@@ -8,6 +8,13 @@
       "when": 1784248340832,
       "tag": "0000_marvelous_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784528514451,
+      "tag": "0001_open_sheva_callister",
+      "breakpoints": true
     }
   ]
 }
