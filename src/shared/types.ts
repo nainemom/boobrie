@@ -45,20 +45,6 @@ export interface ChatMessage {
 	at: number;
 }
 
-export const FEATURES = ['message', 'notifications', 'handle', 'file'] as const;
-
-export type Feature = (typeof FEATURES)[number];
-
-export const FLAGS = ['margherita', 'pepperoni', 'bistecca'] as const;
-
-export type Flag = (typeof FLAGS)[number];
-
-export const FLAG_FEATURES: Record<Flag, Feature[]> = {
-	margherita: ['message'],
-	pepperoni: ['message', 'notifications'],
-	bistecca: ['message', 'notifications', 'handle', 'file'],
-};
-
 export const ROLES = ['user', 'admin'] as const;
 
 export type Role = (typeof ROLES)[number];

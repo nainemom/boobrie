@@ -10,13 +10,7 @@
 
 import { z } from 'zod';
 import { HANDLE_REGEX, RESERVED_HANDLES } from './constants.ts';
-import type {
-	Feature,
-	Flag,
-	PushSubscriptionJson,
-	Role,
-	SealedBox,
-} from './types.ts';
+import type { PushSubscriptionJson, Role, SealedBox } from './types.ts';
 
 // --- HTTP auth handshake ---------------------------------------------------
 
@@ -59,8 +53,6 @@ export interface MeResponse {
 	role: Role;
 	handle: string;
 	fingerprint: string;
-	flag: Flag;
-	features: Feature[];
 	/** True while the account is a paid member (`now < paidUntil`). */
 	paid: boolean;
 	/** ISO-8601 instant the paid membership runs out, or null if never paid. */

@@ -10,7 +10,6 @@ import {
 	verifyHandler,
 } from './services/auth.ts';
 import { createDepositHandler, ipnHandler } from './services/billing.ts';
-import { requireFeature } from './services/featureFlag.ts';
 import {
 	presenceHandler,
 	readMessageHandler,
@@ -60,14 +59,14 @@ async function main() {
 		middleware: [requireAuth],
 	});
 	app.put('/auth/me/push-subscription', editPushSubscriptionHandler, {
-		middleware: [requireAuth, requireFeature('notifications')],
+		middleware: [requireAuth],
 	});
 	app.put('/auth/me/handle', editPushSubscriptionHandler, {
-		middleware: [requireAuth, requireFeature('handle')],
+		middleware: [requireAuth],
 	});
 	app.get('/messages', streamMessagesHandler, { middleware: [requireAuth] });
 	app.post('/messages', sendMessageHandler, {
-		middleware: [requireAuth, requireFeature('message')],
+		middleware: [requireAuth],
 	});
 	app.delete('/messages/:id', readMessageHandler, {
 		middleware: [requireAuth],
