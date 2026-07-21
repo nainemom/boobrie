@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { serwist } from '@serwist/vite';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -12,8 +13,7 @@ export default defineConfig({
 	},
 	plugins: [
 		react(),
-		// Builds src/client/sw.ts into /sw.js (served in dev too) and injects the
-		// precache manifest. The client registers it; see src/client/push.ts.
+		tailwindcss(),
 		serwist({
 			swSrc: 'src/client/sw.ts',
 			swDest: 'sw.js',

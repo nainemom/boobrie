@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { Link, Redirect, useParams } from 'wouter';
+import { Link, useParams } from 'wouter';
 import type { UserResponse } from '@/shared/protocol';
 import { getUser } from './relay';
 import { addConversation, RELAY_URL, sendChat, useStore } from './store';
@@ -26,8 +26,6 @@ export function ChatPage() {
 				setProfileError(error instanceof Error ? error.message : String(error)),
 			);
 	}, [store.session, address]);
-
-	if (!store.identity || !store.session) return <Redirect to="/auth" />;
 
 	const peer = profile?.address ?? null;
 	const conversation = peer

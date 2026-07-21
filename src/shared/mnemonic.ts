@@ -43,6 +43,12 @@ export function generateMnemonic(): string {
 	return bip39GenerateMnemonic(wordlist, MNEMONIC_STRENGTH);
 }
 
+/** True if `mnemonic` is a valid recovery phrase, forgiving of casing and
+ * stray whitespace. Lets the UI check a typed phrase before trying to use it. */
+export function isValidMnemonic(mnemonic: string): boolean {
+	return bip39ValidateMnemonic(normalizeMnemonic(mnemonic), wordlist);
+}
+
 // --- turning the words into actual keys ------------------------------------
 
 export async function mnemonicToKeyPair(

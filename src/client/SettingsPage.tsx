@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { Link, Redirect } from 'wouter';
+import { Link } from 'wouter';
 import type { MeResponse } from '@/shared/protocol';
 import { getMe } from './relay';
 import { logout } from './services/auth';
@@ -30,7 +30,8 @@ export function SettingsPage() {
 			.catch(() => {});
 	}, [store.session, store.handle, store.pushStatus]);
 
-	if (!store.identity || !store.session) return <Redirect to="/auth" />;
+	// Nothing to show without an identity — the gate modal is covering us anyway.
+	if (!store.identity || !store.session) return null;
 
 	const { address } = store.identity;
 

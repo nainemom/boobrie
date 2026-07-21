@@ -1,13 +1,11 @@
 import { type FormEvent, useState } from 'react';
-import { Link, Redirect, useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useStore } from './store';
 
 export function ConversationsPage() {
 	const store = useStore();
 	const [, navigate] = useLocation();
 	const [input, setInput] = useState('');
-
-	if (!store.identity || !store.session) return <Redirect to="/auth" />;
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
