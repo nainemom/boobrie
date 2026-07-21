@@ -1,22 +1,15 @@
 /**
- * Talking to the relay — client side.
- *
- * {@link authenticate} runs the whole login dance over plain HTTP and hands
- * back a session token; every other call presents that token as a `Bearer`
- * header. {@link streamMessages} opens the long-lived `GET /messages`
- * Server-Sent Events connection — plain `EventSource` can't set an
- * `Authorization` header, so it's hand-rolled over `fetch` and a streamed
- * response body instead.
+ * Talking to the relay — client side. Every call presents a session token
+ * (obtained by the auth service, see services/auth.ts) as a `Bearer` header.
+ * {@link streamMessages} opens the long-lived `GET /messages` Server-Sent
+ * Events connection — plain `EventSource` can't set an `Authorization` header,
+ * so it's hand-rolled over `fetch` and a streamed response body instead.
  *
  * Lives in the client (not `shared`) because only the client talks *to* the
  * relay; the relay server never imports this.
  */
 
-import type { Identity } from '@/shared/auth';
-import { openSeal } from '@/shared/crypto';
-import { bytesToBase58 } from '@/shared/encoding';
 import type {
-	ChallengeResponse,
 	CreateDepositRequest,
 	CreateDepositResponse,
 	EditHandleRequest,
@@ -28,18 +21,12 @@ import type {
 	PresenceResponse,
 	SendMessageRequest,
 	UserResponse,
-	VerifyResponse,
 } from '@/shared/protocol';
 import type { PushSubscriptionJson } from '@/shared/types';
 
-/** A proven session: the token to present to the relay, and when it expires. */
-export interface RelaySession {
-	token: string;
-	expiresAt: number;
-	address: string;
-}
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+/** Fetch a relay endpoint, throwing a useful error on a non-2xx response. Used
+ * by the calls here and by the auth service's login handshake. */
+export async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	const res = await fetch(url, init);
 	if (!res.ok) {
 		let detail = '';
@@ -62,37 +49,6 @@ const jsonHeaders = (token: string): HeadersInit => ({
 	'content-type': 'application/json',
 	...authHeaders(token),
 });
-
-/**
- * Prove to the relay that we hold the private key, and get a session token back.
- *   1. ask for a challenge — a random nonce sealed to our public key
- *   2. open it with our private key to recover the nonce
- *   3. send the nonce back; a correct answer earns a signed token
- * Throws if the relay is unreachable or rejects the proof.
- */
-export async function authenticate(
-	baseUrl: string,
-	identity: Identity,
-): Promise<RelaySession> {
-	const { challengeToken, box } = await request<ChallengeResponse>(
-		new URL('/auth/challenge', baseUrl).toString(),
-		{
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ address: identity.address }),
-		},
-	);
-	const nonce = await openSeal(identity.keyPair.privateKey, box);
-	const { token, expiresAt } = await request<VerifyResponse>(
-		new URL('/auth/verify', baseUrl).toString(),
-		{
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ challengeToken, response: bytesToBase58(nonce) }),
-		},
-	);
-	return { token, expiresAt, address: identity.address };
-}
 
 export async function getMe(
 	baseUrl: string,

@@ -1,19 +1,12 @@
 /**
  * Auth: everything you do with an account, in one place.
  *
- * An account is a key pair (see mnemonic.ts) backed by 12 words. There are three
- * everyday actions:
+ * An account is a key pair (see mnemonic.ts) backed by 12 words. Make a fresh
+ * one with `generateIdentity`; the `address` is its public key as text — what
+ * you hand out to others.
  *
- *   - create:  make a new account (fresh 12 words + its keys)  → "sign up"
- *   - recover: rebuild an account from its 12 words            → "log in on a new device"
- *   - address: the public key, written as text — what you share
- *
- * And two things you do with messages:
- *
- *   - encrypt: lock a message using someone's address. Anyone can lock a
- *     message to you; only you can open it.
- *   - decrypt: open a message that was locked to your address, using your
- *     private key.
+ * With messages you `encryptMessage` (lock it using someone's address; only
+ * they can open it) and `decryptMessage` (open one locked to you).
  */
 
 import { exportPublicKeyRaw, openSeal, seal } from './crypto.ts';
@@ -23,17 +16,18 @@ import {
 	bytesToUtf8,
 	utf8ToBytes,
 } from './encoding.ts';
-import { generateMnemonic, mnemonicToIdentity } from './mnemonic.ts';
+import { generateMnemonic, mnemonicToKeyPair } from './mnemonic.ts';
 import type { SealedBox } from './types.ts';
 
-/** A ready-to-use account: the 12 words, the keys they build, and the address. */
+/** A ready-to-use account: the keys, the address, and (when known) the words. */
 export interface Identity {
-	/** The 12 words that back up (and can rebuild) this account. */
-	mnemonic: string;
 	/** The public + private key. The private half stays on this device. */
 	keyPair: CryptoKeyPair;
 	/** The public key written as text — the address you hand out to others. */
 	address: string;
+	/** The 12 words that back up this account. Present for a freshly generated
+	 * account; absent when restored from a persisted key. */
+	mnemonic?: string;
 }
 
 /** Get the address (the public key as text) for a key pair. */
@@ -41,21 +35,12 @@ export async function addressOf(keyPair: CryptoKeyPair): Promise<string> {
 	return bytesToBase58(await exportPublicKeyRaw(keyPair.publicKey));
 }
 
-async function identityFrom(mnemonic: string): Promise<Identity> {
-	const keyPair = await mnemonicToIdentity(mnemonic);
-	return { mnemonic, keyPair, address: await addressOf(keyPair) };
-}
-
-/** Make a brand-new account: fresh 12 words plus the keys and address they
- * build. Save the words somewhere safe — they're the only way back in. */
-export function createIdentity(): Promise<Identity> {
-	return identityFrom(generateMnemonic());
-}
-
-/** Rebuild an account from its 12 words. Throws if the words aren't a valid
- * recovery phrase. */
-export function recoverIdentity(mnemonic: string): Promise<Identity> {
-	return identityFrom(mnemonic);
+/** Make a brand-new account. Returns the whole identity, including the 12 words
+ * to show once for backup — they're the only way back in. Does not log in. */
+export async function generateIdentity(): Promise<Identity> {
+	const mnemonic = generateMnemonic();
+	const keyPair = await mnemonicToKeyPair(mnemonic);
+	return { keyPair, address: await addressOf(keyPair), mnemonic };
 }
 
 /** Lock a message to someone's address so only they can read it. You only need

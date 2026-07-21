@@ -1,37 +1,34 @@
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, use, useRef, useState } from 'react';
 import { Redirect, useLocation } from 'wouter';
-import { createIdentity, type Identity } from '@/shared/auth';
-import { avatar } from './avatar';
-import { signature } from './signature';
-import {
-	loginWithIdentity,
-	loginWithMnemonic,
-	loginWithNewIdentity,
-	useStore,
-} from './store';
+import type { Identity } from '@/shared/auth';
+import { generate, login, restore, useToken } from './services/auth';
+import { avatar } from './services/avatar';
+import { signature } from './services/signature';
 
 export function AuthPage() {
-	const store = useStore();
+	use(restore());
 	const [, navigate] = useLocation();
+	const token = useToken();
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
 	const [busy, setBusy] = useState(false);
 	const [words, setWords] = useState('');
 	const [loginError, setLoginError] = useState<string | null>(null);
-	// A freshly generated identity the user is previewing but hasn't committed
-	// to yet — nothing has touched the relay or the session while it's a draft.
+	// A freshly generated identity being previewed, not yet committed.
 	const [draft, setDraft] = useState<Identity | null>(null);
 	const [draftError, setDraftError] = useState<string | null>(null);
 	const [mnemonic, setMnemonic] = useState<string | null>(null);
 
-	if (store.identity && store.session) return <Redirect to="/conversations" />;
+	// Stay put while showing a fresh recovery phrase, even though we're already
+	// logged in — the user must see it before we move on.
+	if (token && !mnemonic) return <Redirect to="/conversations" />;
 
 	const submitLogin = async (event: FormEvent) => {
 		event.preventDefault();
 		setBusy(true);
 		setLoginError(null);
 		try {
-			await loginWithMnemonic(words);
+			await login({ mnemonic: words });
 			dialogRef.current?.hidePopover();
 			navigate('/conversations');
 		} catch (error) {
@@ -47,18 +44,18 @@ export function AuthPage() {
 		setBusy(true);
 		setDraftError(null);
 		try {
-			setDraft(await createIdentity());
+			setDraft(await generate());
 		} finally {
 			setBusy(false);
 		}
 	};
 
 	const acceptDraft = async () => {
-		if (!draft) return;
+		if (!draft?.mnemonic) return;
 		setBusy(true);
 		setDraftError(null);
 		try {
-			await loginWithIdentity(draft);
+			await login({ mnemonic: draft.mnemonic });
 			setMnemonic(draft.mnemonic);
 			setDraft(null);
 		} catch (error) {
@@ -71,7 +68,9 @@ export function AuthPage() {
 	const justLetMeIn = async () => {
 		setBusy(true);
 		try {
-			await loginWithNewIdentity();
+			const fresh = await generate();
+			if (!fresh.mnemonic) return;
+			await login({ mnemonic: fresh.mnemonic });
 			navigate('/conversations');
 		} finally {
 			setBusy(false);

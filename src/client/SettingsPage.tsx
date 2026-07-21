@@ -2,6 +2,9 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { Link, Redirect } from 'wouter';
 import type { MeResponse } from '@/shared/protocol';
 import { getMe } from './relay';
+import { logout } from './services/auth';
+import { avatar } from './services/avatar';
+import { signature } from './services/signature';
 import {
 	changeHandle,
 	disablePush,
@@ -15,7 +18,7 @@ export function SettingsPage() {
 	const store = useStore();
 
 	const [profile, setProfile] = useState<MeResponse | null>(null);
-	const [handleInput, setHandleInput] = useState(store.handle);
+	const [handleInput, setHandleInput] = useState(store.handle ?? '');
 	const [handleError, setHandleError] = useState<string | null>(null);
 	const [handleSuccess, setHandleSuccess] = useState(false);
 
@@ -28,6 +31,8 @@ export function SettingsPage() {
 	}, [store.session, store.handle, store.pushStatus]);
 
 	if (!store.identity || !store.session) return <Redirect to="/auth" />;
+
+	const { address } = store.identity;
 
 	const submitHandle = (event: FormEvent) => {
 		event.preventDefault();
@@ -48,6 +53,30 @@ export function SettingsPage() {
 			<h1>Settings</h1>
 
 			<section>
+				<h2>Your identity</h2>
+				{/* SVGs stroke in currentColor and carry no intrinsic size; let them
+				    fill the box, height following the viewBox. */}
+				<style>
+					{'.avatar svg, .signature svg{display:block;width:100%;height:auto}'}
+				</style>
+				<div
+					className="avatar"
+					style={{ maxWidth: 240, margin: '1rem 0' }}
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: self-generated SVG, no user-controlled markup
+					dangerouslySetInnerHTML={{ __html: avatar(address) }}
+				/>
+				<div
+					className="signature"
+					style={{ maxWidth: 240, margin: '1rem 0' }}
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: self-generated SVG, no user-controlled markup
+					dangerouslySetInnerHTML={{ __html: signature(address) }}
+				/>
+				<p>
+					Public key: <code style={{ wordBreak: 'break-all' }}>{address}</code>
+				</p>
+			</section>
+
+			<section>
 				<h2>Handle</h2>
 				<form onSubmit={submitHandle}>
 					<label htmlFor="handle-input">Handle</label>
@@ -55,6 +84,7 @@ export function SettingsPage() {
 						id="handle-input"
 						value={handleInput}
 						onChange={(event) => setHandleInput(event.target.value)}
+						placeholder="No handle set"
 					/>
 					<button type="submit" disabled={handleInput.trim() === ''}>
 						Save
@@ -110,6 +140,17 @@ export function SettingsPage() {
 				<pre>
 					<code>{profile ? JSON.stringify(profile, null, 2) : 'Loading…'}</code>
 				</pre>
+			</section>
+
+			<section>
+				<h2>Account</h2>
+				<p>
+					Logging out removes this account's key from this device. You'll need
+					your 12 words to sign back in.
+				</p>
+				<button type="button" onClick={() => logout()}>
+					Log out
+				</button>
 			</section>
 		</main>
 	);

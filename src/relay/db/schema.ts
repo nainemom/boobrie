@@ -22,7 +22,7 @@ export const pendingMessages = pgTable(
 export const users = pgTable('users', {
 	address: text('address').primaryKey(),
 	role: text('role', { enum: ROLES }).notNull().default('user'),
-	handle: text('handle').notNull().unique(),
+	handle: text('handle').unique(),
 	createdAt: timestamp('created_at', { withTimezone: true })
 		.notNull()
 		.defaultNow(),

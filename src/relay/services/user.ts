@@ -5,7 +5,6 @@ import {
 	HTTPError,
 	redirect,
 } from 'h3';
-import { fingerprint } from '@/shared/crypto';
 import {
 	redirectUserSchema,
 	type UserResponse,
@@ -55,7 +54,6 @@ export const getUserHandler = defineHandler(async (event) => {
 	return {
 		address: record.address,
 		handle: record.handle,
-		fingerprint: await fingerprint(record.address),
 		createdAt: record.createdAt,
 	} satisfies UserResponse;
 });

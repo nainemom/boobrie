@@ -6,7 +6,7 @@ import {
 	HTTPError,
 	readValidatedBody,
 } from 'h3';
-import { fingerprint, randomBytes, seal } from '@/shared/crypto';
+import { seal } from '@/shared/crypto';
 import { base58ToBytes, bytesToBase58 } from '@/shared/encoding';
 import {
 	type ChallengeResponse,
@@ -56,7 +56,6 @@ const buildMe = async (address: string): Promise<MeResponse | null> => {
 		address: user.address,
 		role: user.role,
 		handle: user.handle,
-		fingerprint: await fingerprint(user.address),
 		paid: paidUntil !== null && paidUntil > new Date(),
 		paidUntil: paidUntil?.toISOString() ?? null,
 		pushSubscription: await getSubscription(address),
@@ -85,7 +84,7 @@ export const requireAuth = defineMiddleware((event) => {
 export const challengeHandler = defineHandler(async (event) => {
 	const { address } = await readValidatedBody(event, challengeSchema);
 
-	const nonce = randomBytes(NONCE_BYTES);
+	const nonce = crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
 	let box: ChallengeResponse['box'];
 	try {
 		box = await seal(base58ToBytes(address), nonce);
@@ -140,11 +139,9 @@ export const verifyHandler = defineHandler(async (event) => {
 		throw new HTTPError({ status: 401, message: 'wrong response' });
 	}
 
-	const defaultHandle = await fingerprint(claims.address);
-
 	const inserted = await db
 		.insert(users)
-		.values({ address: claims.address, handle: defaultHandle })
+		.values({ address: claims.address })
 		.onConflictDoNothing()
 		.returning({ address: users.address });
 
@@ -165,13 +162,15 @@ export const editHandleHandler = defineHandler(async (event) => {
 	const address = event.context.claim?.address || '';
 	const { handle } = await readValidatedBody(event, editHandleSchema);
 
-	const [existing] = await db
-		.select({ address: users.address })
-		.from(users)
-		.where(eq(users.handle, handle))
-		.limit(1);
-	if (existing && existing.address !== address) {
-		throw new HTTPError({ status: 409, message: 'handle already taken' });
+	if (handle !== null) {
+		const [existing] = await db
+			.select({ address: users.address })
+			.from(users)
+			.where(eq(users.handle, handle))
+			.limit(1);
+		if (existing && existing.address !== address) {
+			throw new HTTPError({ status: 409, message: 'handle already taken' });
+		}
 	}
 	await db.update(users).set({ handle }).where(eq(users.address, address));
 

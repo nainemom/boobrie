@@ -51,7 +51,8 @@ export function ChatPage() {
 				<Link href="/conversations">Back to conversations</Link>
 			</p>
 			<h1>
-				{address} (${profile?.handle})
+				{address}
+				{profile?.handle ? ` (@${profile.handle})` : null}
 			</h1>
 
 			{profileError ? (

@@ -51,8 +51,7 @@ export interface VerifyResponse {
 export interface MeResponse {
 	address: string;
 	role: Role;
-	handle: string;
-	fingerprint: string;
+	handle: string | null;
 	/** True while the account is a paid member (`now < paidUntil`). */
 	paid: boolean;
 	/** ISO-8601 instant the paid membership runs out, or null if never paid. */
@@ -96,7 +95,8 @@ export const editHandleSchema = z.object({
 		.refine(
 			(handle) => !RESERVED_HANDLES.includes(handle as never),
 			'handle is reserved and cannot be used',
-		),
+		)
+		.nullable(),
 });
 export type EditHandleRequest = z.infer<typeof editHandleSchema>;
 
@@ -120,8 +120,7 @@ export type UserParams = z.infer<typeof userParamsSchema>;
 /** `GET /users/:address` reply — another user's public profile. */
 export interface UserResponse {
 	address: string;
-	handle: string;
-	fingerprint: string;
+	handle: string | null;
 	createdAt: Date;
 }
 

@@ -30,35 +30,13 @@ export function importPublicKeyRaw(raw: Uint8Array): Promise<CryptoKey> {
 	);
 }
 
-/** Export a private key as a JWK object for persistence (e.g. localStorage). */
-export function exportPrivateKeyJwk(key: CryptoKey): Promise<JsonWebKey> {
-	return crypto.subtle.exportKey('jwk', key);
-}
-
+/** Import an identity private key. Non-extractable: it can derive bits (ECDH,
+ * the auth challenge) but its raw material can never be read back out — so a
+ * persisted key can't be exfiltrated even from a compromised page. */
 export function importPrivateKeyJwk(jwk: JsonWebKey): Promise<CryptoKey> {
-	return crypto.subtle.importKey('jwk', jwk, ECDH_PARAMS, true, ['deriveBits']);
-}
-
-/** Recover the raw public key from a stored private-key JWK (which carries the
- * public coordinates x/y). Lets the client persist a single JWK and rebuild its
- * public key / JID on load. */
-export async function publicKeyRawFromJwk(
-	jwk: JsonWebKey,
-): Promise<Uint8Array> {
-	const publicJwk: JsonWebKey = {
-		kty: jwk.kty,
-		crv: jwk.crv,
-		x: jwk.x,
-		y: jwk.y,
-	};
-	const publicKey = await crypto.subtle.importKey(
-		'jwk',
-		publicJwk,
-		ECDH_PARAMS,
-		true,
-		[],
-	);
-	return exportPublicKeyRaw(publicKey);
+	return crypto.subtle.importKey('jwk', jwk, ECDH_PARAMS, false, [
+		'deriveBits',
+	]);
 }
 
 // --- shared-secret derivation ----------------------------------------------
@@ -184,25 +162,4 @@ export async function openSeal(
 		base58ToBytes(box.ct) as BufferSource,
 	);
 	return new Uint8Array(data);
-}
-
-/** Cryptographically strong random bytes. */
-export function randomBytes(length: number): Uint8Array {
-	return crypto.getRandomValues(new Uint8Array(length));
-}
-
-/** A random identifier suitable for stanza and message ids. */
-export function randomId(): string {
-	return crypto.randomUUID();
-}
-
-/** Compute a hexadecimal SHA-256 hash/fingerprint of a string. */
-export async function fingerprint(text: string): Promise<string> {
-	const msgUint8 = utf8ToBytes(text);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	const hashHex = hashArray
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-	return hashHex;
 }

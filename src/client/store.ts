@@ -1,13 +1,14 @@
 /**
- * All client state, in memory only — no localStorage, no persistence. A page
- * refresh means a fresh login (see the "no local storage" rule this app
- * follows for auth/chats). Pages read it with {@link useStore} and act on it
- * through the exported functions below; the message stream and push wiring
- * run here so they survive navigating between pages.
+ * The message-session store: the live stream, messages, conversations, handle,
+ * and push wiring. Who you are — identity + session token — lives in the auth
+ * service ({@link file://./services/auth.ts}); this store *reacts* to it,
+ * bringing the stream up when a session appears and tearing it down when it
+ * goes (so both explicit login and silent auto-login just work). Pages read it
+ * with {@link useStore}. Everything here is in memory; auth owns persistence.
  */
 
 import { useSyncExternalStore } from 'react';
-import { createIdentity, type Identity, recoverIdentity } from '@/shared/auth';
+import type { Identity } from '@/shared/auth';
 import type { Message } from '@/shared/protocol';
 import type { ChatMessage } from '@/shared/types';
 import { decryptFrom, encryptFor } from './chat';
@@ -19,16 +20,20 @@ import {
 	unsubscribeFromPush,
 } from './push';
 import {
-	authenticate,
 	editPushSubscription,
 	getMe,
 	type MessageStream,
-	type RelaySession,
 	readMessage,
 	sendMessage,
 	streamMessages,
 	updateHandle,
 } from './relay';
+import {
+	getIdentity,
+	getSession,
+	type RelaySession,
+	subscribe as subscribeAuth,
+} from './services/auth';
 
 /** Where the relay lives. Set VITE_RELAY_URL in .env to point elsewhere. */
 export const RELAY_URL =
@@ -54,7 +59,7 @@ interface State {
 	session: RelaySession | null;
 	status: StreamStatus;
 	error: string | null;
-	handle: string;
+	handle: string | null;
 	vapidPublicKey: string | null;
 	permission: NotificationPermission | 'unsupported';
 	pushStatus: PushStatus;
@@ -69,7 +74,7 @@ const initialState: State = {
 	session: null,
 	status: 'idle',
 	error: null,
-	handle: '',
+	handle: null,
 	vapidPublicKey: null,
 	permission: notificationPermission(),
 	pushStatus: 'idle',
@@ -166,72 +171,71 @@ function reassertPushSubscription(session: RelaySession): void {
 	});
 }
 
-async function login(identity: Identity): Promise<void> {
+// --- react to the auth service ---------------------------------------------
+
+/** Bring the session up: fetch the profile and open the message stream. */
+async function connect(
+	identity: Identity,
+	session: RelaySession,
+): Promise<void> {
 	closeStream();
 	seenIncoming.clear();
 	set({
 		...initialState,
 		permission: state.permission,
 		identity,
-		status: 'authenticating',
+		session,
+		status: 'connecting',
 	});
 	try {
-		const session = await authenticate(RELAY_URL, identity);
-		set({ session });
-
-		try {
-			const me = await getMe(RELAY_URL, session.token);
-			set({ handle: me.handle, vapidPublicKey: me.vapidPublicKey });
-		} catch (error) {
-			console.error('Failed to fetch user profile:', error);
-		}
-
-		set({ status: 'connecting' });
-		stream = streamMessages(RELAY_URL, session.token, {
-			onOpen: () => {
-				set({ status: 'connected' });
-				reassertPushSubscription(session);
-			},
-			onMessage: (message) => handleIncoming(identity, session, message),
-			onClose: () => set({ status: 'closed' }),
-			onError: () => {
-				set({
-					status: 'error',
-					error: 'Message stream failed (token rejected?).',
-				});
-			},
-		});
+		const me = await getMe(RELAY_URL, session.token);
+		set({ handle: me.handle, vapidPublicKey: me.vapidPublicKey });
 	} catch (error) {
-		set({
-			identity: null,
-			status: 'error',
-			error: error instanceof Error ? error.message : String(error),
-		});
-		throw error;
+		console.error('Failed to fetch user profile:', error);
+	}
+	stream = streamMessages(RELAY_URL, session.token, {
+		onOpen: () => {
+			set({ status: 'connected' });
+			reassertPushSubscription(session);
+		},
+		onMessage: (message) => handleIncoming(identity, session, message),
+		onClose: () => set({ status: 'closed' }),
+		onError: () => {
+			set({
+				status: 'error',
+				error: 'Message stream failed (token rejected?).',
+			});
+		},
+	});
+}
+
+/** Tear the session down and return to a clean logged-out state. */
+function disconnect(): void {
+	closeStream();
+	seenIncoming.clear();
+	set({ ...initialState, permission: state.permission });
+}
+
+// The token we last connected for — so a new session reconnects but repeat
+// notifications for the same one are ignored.
+let connectedToken: string | null = null;
+
+function syncFromAuth(): void {
+	const identity = getIdentity();
+	const session = getSession();
+	if (identity && session) {
+		if (session.token === connectedToken) return;
+		connectedToken = session.token;
+		void connect(identity, session);
+	} else if (connectedToken !== null) {
+		connectedToken = null;
+		disconnect();
 	}
 }
 
-/** Generate a brand-new account and log in with it. Returns the identity so the
- * caller can show its recovery phrase once. */
-export async function loginWithNewIdentity(): Promise<Identity> {
-	const identity = await createIdentity();
-	await login(identity);
-	return identity;
-}
-
-/** Commit an already-created identity as the session. Used when the caller has
- * generated a draft identity, let the user preview it (e.g. its signature), and
- * only now — on accept — wants to authenticate with the relay. */
-export async function loginWithIdentity(identity: Identity): Promise<void> {
-	await login(identity);
-}
-
-/** Rebuild an account from its 12 words and log in with it. Throws if the words
- * aren't a valid recovery phrase or the relay rejects the proof. */
-export async function loginWithMnemonic(mnemonic: string): Promise<void> {
-	const identity = await recoverIdentity(mnemonic);
-	await login(identity);
-}
+subscribeAuth(syncFromAuth);
+// Pick up a session that auto-login may have restored before this module ran.
+syncFromAuth();
 
 export async function sendChat(peer: string, body: string): Promise<void> {
 	if (!state.identity || !state.session) {
