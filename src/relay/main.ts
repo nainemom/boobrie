@@ -4,6 +4,7 @@ import { config } from './config.ts';
 import { initDb } from './db/index.ts';
 import {
 	challengeHandler,
+	editDiscoverableHandler,
 	editHandleHandler,
 	getMeHandler,
 	requireAuth,
@@ -12,6 +13,7 @@ import {
 import { createDepositHandler, ipnHandler } from './services/billing.ts';
 import {
 	presenceHandler,
+	randomMatchHandler,
 	readMessageHandler,
 	sendMessageHandler,
 	streamMessagesHandler,
@@ -58,6 +60,9 @@ async function main() {
 	app.patch('/auth/me/handle', editHandleHandler, {
 		middleware: [requireAuth],
 	});
+	app.patch('/auth/me/discoverable', editDiscoverableHandler, {
+		middleware: [requireAuth],
+	});
 	app.put('/auth/me/push-subscription', editPushSubscriptionHandler, {
 		middleware: [requireAuth],
 	});
@@ -72,6 +77,7 @@ async function main() {
 		middleware: [requireAuth],
 	});
 	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
+	app.post('/random', randomMatchHandler, { middleware: [requireAuth] });
 	app.post('/billing/deposit', createDepositHandler, {
 		middleware: [requireAuth],
 	});

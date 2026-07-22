@@ -17,11 +17,15 @@ import type { Identity } from '@/shared/auth';
 import type {
 	CreateDepositRequest,
 	CreateDepositResponse,
+	EditDiscoverableRequest,
+	EditDiscoverableResponse,
 	EditHandleRequest,
 	EditHandleResponse,
 	EditPushSubscriptionRequest,
 	EditPushSubscriptionResponse,
 	MeResponse,
+	RandomMatchRequest,
+	RandomMatchResponse,
 	UserResponse,
 } from '@/shared/protocol';
 import type { PushSubscriptionJson } from '@/shared/types';
@@ -65,6 +69,17 @@ export function updateHandle(
 	});
 }
 
+/** Opt this account in or out of being offered to others in random chat. */
+export function setDiscoverable(
+	discoverable: boolean,
+): Promise<EditDiscoverableResponse> {
+	return request('/auth/me/discoverable', {
+		method: 'PATCH',
+		headers: jsonHeaders(requireToken()),
+		body: JSON.stringify({ discoverable } satisfies EditDiscoverableRequest),
+	});
+}
+
 /** Register (or clear, with `null`) this device's push subscription. */
 export function editPushSubscription(
 	pushSubscription: PushSubscriptionJson | null,
@@ -89,6 +104,19 @@ export function getHandle(handle: string): Promise<UserResponse> {
 export function getUser(address: string): Promise<UserResponse> {
 	return request(`/users/${encodeURIComponent(address)}`, {
 		headers: authHeaders(requireToken()),
+	});
+}
+
+/** Pick a random online user to chat with, skipping any already seen (pass their
+ * addresses in `exclude`). The returned address is null when no one else is
+ * currently online. */
+export function getRandomMatch(
+	exclude: string[] = [],
+): Promise<RandomMatchResponse> {
+	return request('/random', {
+		method: 'POST',
+		headers: jsonHeaders(requireToken()),
+		body: JSON.stringify({ exclude } satisfies RandomMatchRequest),
 	});
 }
 
@@ -223,6 +251,13 @@ syncFromAuth();
 export async function changeHandle(handle: string): Promise<void> {
 	const res = await updateHandle(handle);
 	set({ me: state.me ? { ...state.me, handle: res.handle } : state.me });
+}
+
+export async function changeDiscoverable(discoverable: boolean): Promise<void> {
+	const res = await setDiscoverable(discoverable);
+	set({
+		me: state.me ? { ...state.me, discoverable: res.discoverable } : state.me,
+	});
 }
 
 /** Ask the browser for notification permission. Call from a user gesture (a

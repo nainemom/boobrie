@@ -1,4 +1,11 @@
-import { bigint, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+	bigint,
+	boolean,
+	index,
+	pgTable,
+	text,
+	timestamp,
+} from 'drizzle-orm/pg-core';
 import { ROLES } from '@/shared/types';
 
 export const pendingMessages = pgTable(
@@ -23,6 +30,10 @@ export const users = pgTable('users', {
 	address: text('address').primaryKey(),
 	role: text('role', { enum: ROLES }).notNull().default('user'),
 	handle: text('handle').unique(),
+	// Whether this user can be offered to others in random chat. User-controlled
+	// (Settings); filtered live at match time, so toggling it takes effect even
+	// while a session is open.
+	discoverable: boolean('discoverable').notNull().default(true),
 	createdAt: timestamp('created_at', { withTimezone: true })
 		.notNull()
 		.defaultNow(),

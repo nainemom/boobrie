@@ -6,6 +6,7 @@ import { Spinner } from '../components/Spinner';
 import { logout } from '../services/auth';
 import { signature } from '../services/signature';
 import {
+	changeDiscoverable,
 	changeHandle,
 	disablePush,
 	enablePush,
@@ -27,6 +28,10 @@ export function SettingsPage() {
 	const [handleError, setHandleError] = useState<string | null>(null);
 	const [handleSuccess, setHandleSuccess] = useState(false);
 	const [copied, setCopied] = useState(false);
+	const [savingDiscoverable, setSavingDiscoverable] = useState(false);
+	const [discoverableError, setDiscoverableError] = useState<string | null>(
+		null,
+	);
 
 	// Nothing to show without an identity — the gate modal is covering us anyway.
 	if (!user.identity || !user.session) return null;
@@ -50,6 +55,19 @@ export function SettingsPage() {
 			setCopied(true);
 			setTimeout(() => setCopied(false), 1500);
 		});
+	};
+
+	const toggleDiscoverable = () => {
+		if (!profile) return;
+		setDiscoverableError(null);
+		setSavingDiscoverable(true);
+		changeDiscoverable(!profile.discoverable)
+			.catch((error) =>
+				setDiscoverableError(
+					error instanceof Error ? error.message : String(error),
+				),
+			)
+			.finally(() => setSavingDiscoverable(false));
 	};
 
 	const subscribed = user.pushStatus === 'subscribed';
@@ -175,6 +193,39 @@ export function SettingsPage() {
 						) : null}
 					</Section>
 
+					<Section title="Random chat">
+						{profile ? (
+							<>
+								<div className="flex items-center justify-between gap-4">
+									<div className="flex min-w-0 flex-col gap-0.5">
+										<span className="text-sm font-medium text-neutral-700">
+											Discoverable
+										</span>
+										<span className="text-xs text-neutral-500">
+											When on, others can be matched with you in “Talk to a
+											stranger”. Turn it off to stay out of the pool.
+										</span>
+									</div>
+									<Toggle
+										checked={profile.discoverable}
+										disabled={savingDiscoverable}
+										onChange={toggleDiscoverable}
+										label="Discoverable in random chat"
+									/>
+								</div>
+								{discoverableError ? (
+									<p role="alert" className="text-sm text-red-700">
+										{discoverableError}
+									</p>
+								) : null}
+							</>
+						) : (
+							<div className="flex justify-center py-2">
+								<Spinner className="text-neutral-300" />
+							</div>
+						)}
+					</Section>
+
 					<Section title="Membership">
 						{profile ? (
 							<dl className="flex flex-col gap-2 text-sm">
@@ -241,6 +292,31 @@ const Row: FC<{ label: string; value: ReactNode }> = ({ label, value }) => (
 		<dt className="text-neutral-500">{label}</dt>
 		<dd className="font-medium text-neutral-800">{value}</dd>
 	</div>
+);
+
+const Toggle: FC<{
+	checked: boolean;
+	onChange: () => void;
+	label: string;
+	disabled?: boolean;
+}> = ({ checked, onChange, label, disabled }) => (
+	<button
+		type="button"
+		role="switch"
+		aria-checked={checked}
+		aria-label={label}
+		disabled={disabled}
+		onClick={onChange}
+		className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:pointer-events-none disabled:opacity-50 ${
+			checked ? 'bg-primary' : 'bg-neutral-300'
+		}`}
+	>
+		<span
+			className={`inline-block size-5 rounded-full bg-white shadow transition-transform ${
+				checked ? 'translate-x-5' : 'translate-x-0.5'
+			}`}
+		/>
+	</button>
 );
 
 const ChevronLeftIcon = () => (

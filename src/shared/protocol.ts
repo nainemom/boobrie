@@ -52,6 +52,8 @@ export interface MeResponse {
 	address: string;
 	role: Role;
 	handle: string | null;
+	/** Whether this user can be offered to others in random chat. */
+	discoverable: boolean;
 	/** True while the account is a paid member (`now < paidUntil`). */
 	paid: boolean;
 	/** ISO-8601 instant the paid membership runs out, or null if never paid. */
@@ -102,6 +104,15 @@ export type EditHandleRequest = z.infer<typeof editHandleSchema>;
 
 /** `PUT /auth/me/handle` reply. */
 export type EditHandleResponse = EditHandleRequest;
+
+/** `PATCH /auth/me/discoverable` body — opt in or out of random chat. */
+export const editDiscoverableSchema = z.object({
+	discoverable: z.boolean(),
+});
+export type EditDiscoverableRequest = z.infer<typeof editDiscoverableSchema>;
+
+/** `PATCH /auth/me/discoverable` reply. */
+export type EditDiscoverableResponse = EditDiscoverableRequest;
 
 // --- Users -----------------------------------------------------------------
 
@@ -158,6 +169,21 @@ export interface Message {
 export interface PresenceResponse {
 	address: string;
 	online: boolean;
+}
+
+// --- Random match ----------------------------------------------------------
+
+/** `POST /random` body — addresses to skip. The requester is always excluded
+ * too, and a just-skipped person is added here so they aren't offered again. */
+export const randomMatchSchema = z.object({
+	exclude: z.array(z.string()).default([]),
+});
+export type RandomMatchRequest = z.infer<typeof randomMatchSchema>;
+
+/** `POST /random` reply — a random online user to chat with, or a null address
+ * when no one else is currently online. */
+export interface RandomMatchResponse {
+	address: string | null;
 }
 
 // --- Deposits (paid membership) --------------------------------------------

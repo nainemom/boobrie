@@ -5,11 +5,13 @@ import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { Spinner } from '../components/Spinner';
 import { useConversations } from '../services/chat';
+import { RandomChatModal } from './RandomChatModal';
 
 export function ConversationsPage() {
 	const conversations = useConversations();
 	const [, navigate] = useLocation();
 	const [creating, setCreating] = useState(false);
+	const [matching, setMatching] = useState(false);
 	const [input, setInput] = useState('');
 
 	const closeModal = () => {
@@ -52,10 +54,15 @@ export function ConversationsPage() {
 							</p>
 							<p className="text-sm text-neutral-500">
 								Tap the button below to start chatting with an address or
-								@handle.
+								@handle — or meet someone new at random.
 							</p>
 						</div>
-						<Button onClick={() => setCreating(true)}>Start a chat</Button>
+						<div className="flex flex-col gap-2">
+							<Button onClick={() => setCreating(true)}>Start a chat</Button>
+							<Button variant="outline" onClick={() => setMatching(true)}>
+								Talk to a stranger
+							</Button>
+						</div>
 					</div>
 				) : (
 					<ul className="divide-y divide-neutral-100">
@@ -79,6 +86,17 @@ export function ConversationsPage() {
 					</ul>
 				)}
 			</div>
+
+			<Button
+				iconOnly
+				size="lg"
+				variant="outline"
+				onClick={() => setMatching(true)}
+				aria-label="Talk to a stranger"
+				className="absolute bottom-24 right-6 rounded-full bg-white shadow-lg"
+			>
+				<ShuffleIcon className="size-6" />
+			</Button>
 
 			<Button
 				iconOnly
@@ -120,6 +138,8 @@ export function ConversationsPage() {
 					</form>
 				</Modal>
 			)}
+
+			{matching && <RandomChatModal onClose={() => setMatching(false)} />}
 		</main>
 	);
 }
@@ -182,5 +202,24 @@ const PlusIcon = ({ className }: { className?: string }) => (
 		aria-hidden="true"
 	>
 		<path d="M12 5v14M5 12h14" />
+	</svg>
+);
+
+const ShuffleIcon = ({ className }: { className?: string }) => (
+	<svg
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth={2}
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		className={className}
+		aria-hidden="true"
+	>
+		<path d="M16 3h5v5" />
+		<path d="M4 20 21 3" />
+		<path d="M21 16v5h-5" />
+		<path d="m15 15 6 6" />
+		<path d="M4 4l5 5" />
 	</svg>
 );

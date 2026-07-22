@@ -17,7 +17,7 @@
  * announcement fired while it was deaf is gone.
  */
 
-import { and, asc, eq, gt, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, notInArray, sql } from 'drizzle-orm';
 import {
 	createEventStream,
 	defineHandler,
@@ -30,11 +30,13 @@ import {
 	messageParamsSchema,
 	type PresenceResponse,
 	presenceParamsSchema,
+	type RandomMatchResponse,
+	randomMatchSchema,
 	sendMessageSchema,
 } from '@/shared/protocol';
 import { sleep } from '@/shared/utils.ts';
 import { createListener, db } from '../db/index.ts';
-import { pendingMessages, sessions } from '../db/schema.ts';
+import { pendingMessages, sessions, users } from '../db/schema.ts';
 import { notify } from './push.ts';
 
 const CHANNEL = 'chat';
@@ -270,4 +272,27 @@ export const presenceHandler = defineHandler(async (event) => {
 		address,
 		online: await isOnline(address),
 	} satisfies PresenceResponse;
+});
+
+export const randomMatchHandler = defineHandler(async (event) => {
+	const self = event.context.claim?.address || '';
+	const { exclude } = await readValidatedBody(event, randomMatchSchema);
+
+	const fresh = new Date(Date.now() - PRESENCE_TTL_MS);
+	const [row] = await db
+		.select({ address: sessions.address })
+		.from(sessions)
+		.innerJoin(users, eq(users.address, sessions.address))
+		.where(
+			and(
+				gt(sessions.createdAt, fresh),
+				eq(users.discoverable, true),
+				notInArray(sessions.address, [self, ...exclude]),
+			),
+		)
+		.groupBy(sessions.address)
+		.orderBy(sql`random()`)
+		.limit(1);
+
+	return { address: row?.address ?? null } satisfies RandomMatchResponse;
 });

@@ -11,7 +11,9 @@ import { base58ToBytes, bytesToBase58 } from '@/shared/encoding';
 import {
 	type ChallengeResponse,
 	challengeSchema,
+	type EditDiscoverableResponse,
 	type EditHandleResponse,
+	editDiscoverableSchema,
 	editHandleSchema,
 	type MeResponse,
 	type VerifyResponse,
@@ -56,6 +58,7 @@ const buildMe = async (address: string): Promise<MeResponse | null> => {
 		address: user.address,
 		role: user.role,
 		handle: user.handle,
+		discoverable: user.discoverable,
 		paid: paidUntil !== null && paidUntil > new Date(),
 		paidUntil: paidUntil?.toISOString() ?? null,
 		pushSubscription: await getSubscription(address),
@@ -177,4 +180,19 @@ export const editHandleHandler = defineHandler(async (event) => {
 	return {
 		handle,
 	} satisfies EditHandleResponse;
+});
+
+export const editDiscoverableHandler = defineHandler(async (event) => {
+	const address = event.context.claim?.address || '';
+	const { discoverable } = await readValidatedBody(
+		event,
+		editDiscoverableSchema,
+	);
+
+	await db
+		.update(users)
+		.set({ discoverable })
+		.where(eq(users.address, address));
+
+	return { discoverable } satisfies EditDiscoverableResponse;
 });

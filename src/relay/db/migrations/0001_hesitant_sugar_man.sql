@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "discoverable" boolean DEFAULT true NOT NULL;
