@@ -12,11 +12,12 @@ if (!process.env.DB_URL) {
 function readVapid() {
 	const publicKey = process.env.VAPID_PUBLIC_KEY;
 	const privateKey = process.env.VAPID_PRIVATE_KEY;
-	if (!publicKey || !privateKey) return null;
+	const subject = process.env.VAPID_SUBJECT;
+	if (!publicKey || !privateKey || !subject) return null;
 	return {
 		publicKey,
 		privateKey,
-		subject: process.env.VAPID_SUBJECT,
+		subject,
 	};
 }
 
