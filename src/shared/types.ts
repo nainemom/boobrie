@@ -34,17 +34,6 @@ export interface PushPayload {
 	id: string;
 }
 
-/** A chat message as the UI stores and renders it (already decrypted locally). */
-export interface ChatMessage {
-	id: string;
-	/** Address of the peer this message belongs to (the other end of the chat). */
-	peer: string;
-	direction: 'in' | 'out';
-	body: string;
-	/** Epoch millis, stamped locally on send/receive. */
-	at: number;
-}
-
 export const ROLES = ['user', 'admin'] as const;
 
 export type Role = (typeof ROLES)[number];
