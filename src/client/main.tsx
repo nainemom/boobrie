@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { log } from '@/shared/log';
 import { App } from './App.tsx';
-import { pushSupported, registerServiceWorker } from './push.ts';
+import { pushSupported, registerServiceWorker } from './services/push.ts';
 import { startSync } from './services/sync.ts';
 
 const root = document.getElementById('root');

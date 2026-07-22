@@ -1,26 +1,17 @@
-import {
-	type FC,
-	type FormEvent,
-	type ReactNode,
-	useEffect,
-	useState,
-} from 'react';
+import { type FC, type FormEvent, type ReactNode, useState } from 'react';
 import { Link } from 'wouter';
-import type { MeResponse } from '@/shared/protocol';
-import { Avatar } from './components/Avatar';
-import { Button } from './components/Button';
-import { Spinner } from './components/Spinner';
-import { getMe } from './relay';
-import { logout } from './services/auth';
-import { signature } from './services/signature';
+import { Avatar } from '../components/Avatar';
+import { Button } from '../components/Button';
+import { Spinner } from '../components/Spinner';
+import { logout } from '../services/auth';
+import { signature } from '../services/signature';
 import {
 	changeHandle,
 	disablePush,
 	enablePush,
 	grantPermission,
-	RELAY_URL,
-	useStore,
-} from './store';
+	useUser,
+} from '../services/user';
 
 const PERMISSION_BADGE: Record<string, string> = {
 	granted: 'bg-green-100 text-green-700',
@@ -30,26 +21,18 @@ const PERMISSION_BADGE: Record<string, string> = {
 };
 
 export function SettingsPage() {
-	const store = useStore();
+	const user = useUser();
 
-	const [profile, setProfile] = useState<MeResponse | null>(null);
-	const [handleInput, setHandleInput] = useState(store.handle ?? '');
+	const [handleInput, setHandleInput] = useState(user.me?.handle ?? '');
 	const [handleError, setHandleError] = useState<string | null>(null);
 	const [handleSuccess, setHandleSuccess] = useState(false);
 	const [copied, setCopied] = useState(false);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: also refetch when handle/push status change server-side
-	useEffect(() => {
-		if (!store.session) return;
-		getMe(RELAY_URL, store.session.token)
-			.then(setProfile)
-			.catch(() => {});
-	}, [store.session, store.handle, store.pushStatus]);
-
 	// Nothing to show without an identity — the gate modal is covering us anyway.
-	if (!store.identity || !store.session) return null;
+	if (!user.identity || !user.session) return null;
 
-	const { address } = store.identity;
+	const { address } = user.identity;
+	const profile = user.me;
 
 	const submitHandle = (event: FormEvent) => {
 		event.preventDefault();
@@ -69,9 +52,9 @@ export function SettingsPage() {
 		});
 	};
 
-	const subscribed = store.pushStatus === 'subscribed';
+	const subscribed = user.pushStatus === 'subscribed';
 	const pushBusy =
-		store.pushStatus === 'subscribing' || store.pushStatus === 'unsubscribing';
+		user.pushStatus === 'subscribing' || user.pushStatus === 'unsubscribing';
 
 	return (
 		<main className="flex h-full flex-col">
@@ -152,10 +135,10 @@ export function SettingsPage() {
 							<span className="text-sm text-neutral-600">Permission</span>
 							<span
 								className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-									PERMISSION_BADGE[store.permission] ?? PERMISSION_BADGE.default
+									PERMISSION_BADGE[user.permission] ?? PERMISSION_BADGE.default
 								}`}
 							>
-								{store.permission}
+								{user.permission}
 							</span>
 						</div>
 						<div className="flex flex-col gap-2 sm:flex-row">
@@ -164,8 +147,7 @@ export function SettingsPage() {
 								className="grow"
 								onClick={() => grantPermission()}
 								disabled={
-									store.permission === 'granted' ||
-									store.permission === 'denied'
+									user.permission === 'granted' || user.permission === 'denied'
 								}
 							>
 								Grant permission
@@ -175,8 +157,8 @@ export function SettingsPage() {
 								variant={subscribed ? 'outline' : 'primary'}
 								onClick={() => (subscribed ? disablePush() : enablePush())}
 								disabled={
-									store.permission !== 'granted' ||
-									!store.vapidPublicKey ||
+									user.permission !== 'granted' ||
+									!user.me?.vapidPublicKey ||
 									pushBusy
 								}
 							>
@@ -186,9 +168,9 @@ export function SettingsPage() {
 									: 'Subscribe this device'}
 							</Button>
 						</div>
-						{store.pushError ? (
+						{user.pushError ? (
 							<p role="alert" className="text-sm text-red-700">
-								<strong>Push error:</strong> {store.pushError}
+								<strong>Push error:</strong> {user.pushError}
 							</p>
 						) : null}
 					</Section>

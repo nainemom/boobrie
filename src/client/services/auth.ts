@@ -5,12 +5,10 @@ import { bytesToBase58 } from '@/shared/encoding';
 import { mnemonicToKeyPair } from '@/shared/mnemonic';
 import type { ChallengeResponse, VerifyResponse } from '@/shared/protocol';
 import { db } from '../db';
-import { request } from '../relay';
 import { createExternalStore } from '../utils/react';
+import { request } from '../utils/request';
 
 export { generateIdentity as generate } from '@/shared/auth';
-
-const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
 
 const KEY_ID = 'keyPair';
 
@@ -60,7 +58,7 @@ async function authenticate(
 		mnemonic,
 	};
 	const { challengeToken, box } = await request<ChallengeResponse>(
-		new URL('/auth/challenge', RELAY_URL).toString(),
+		'/auth/challenge',
 		{
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -68,14 +66,11 @@ async function authenticate(
 		},
 	);
 	const nonce = await openSeal(identity.keyPair.privateKey, box);
-	const authResult = await request<VerifyResponse>(
-		new URL('/auth/verify', RELAY_URL).toString(),
-		{
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ challengeToken, response: bytesToBase58(nonce) }),
-		},
-	);
+	const authResult = await request<VerifyResponse>('/auth/verify', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ challengeToken, response: bytesToBase58(nonce) }),
+	});
 	const session = {
 		token: authResult.token,
 		expiresAt: authResult.expiresAt,

@@ -1,10 +1,10 @@
 import { type FormEvent, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Avatar } from './components/Avatar';
-import { Button } from './components/Button';
-import { Modal } from './components/Modal';
-import { Spinner } from './components/Spinner';
-import { useConversations } from './services/chat';
+import { Avatar } from '../components/Avatar';
+import { Button } from '../components/Button';
+import { Modal } from '../components/Modal';
+import { Spinner } from '../components/Spinner';
+import { useConversations } from '../services/chat';
 
 export function ConversationsPage() {
 	const conversations = useConversations();

@@ -1,19 +1,19 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { getHandle } from './relay';
-import { RELAY_URL, useStore } from './store';
+import { useToken } from '../services/auth';
+import { getHandle } from '../services/user';
 
 export function ChatRedirectPage() {
 	const { handle } = useParams<{ handle: string }>();
 	const [, setLocation] = useLocation();
-	const store = useStore();
+	const token = useToken();
 
 	useEffect(() => {
-		if (!store.session) return;
-		getHandle(RELAY_URL, store.session.token, handle).then((res) => {
+		if (!token) return;
+		getHandle(handle).then((res) => {
 			setLocation(`/i/${res.address}`);
 		});
-	}, [store.session, handle, setLocation]);
+	}, [token, handle, setLocation]);
 
 	return <main>Redirecting...</main>;
 }

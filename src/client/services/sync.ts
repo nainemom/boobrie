@@ -22,21 +22,18 @@ import type { Message } from '@/shared/protocol';
 import type { EncryptedPayload } from '@/shared/types';
 import { db } from '../db';
 import {
-	type MessageStream,
-	readMessage,
-	sendMessage,
-	streamMessages,
-} from '../relay';
-import {
 	getIdentity,
 	getSession,
 	type RelaySession,
 	subscribe as subscribeAuth,
 } from './auth';
-import { saveIncoming } from './chat';
-
-/** Where the relay lives. Set VITE_RELAY_URL in .env to point elsewhere. */
-const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
+import {
+	type MessageStream,
+	readMessage,
+	saveIncoming,
+	sendMessage,
+	streamMessages,
+} from './chat';
 
 /** How long to wait before retrying the outbox after a send fails. */
 const RETRY_MS = 5000;
@@ -100,7 +97,7 @@ let flushAgain = false;
 
 /** Tell the relay a message was received, so it drops its stored copy. */
 function ack(token: string, id: string): void {
-	readMessage(RELAY_URL, token, id).catch((error) =>
+	readMessage(token, id).catch((error) =>
 		console.error('Failed to ack message:', error),
 	);
 }
@@ -157,7 +154,7 @@ async function flushOutbox(): Promise<void> {
 			if (currentToken !== token) break; // session changed under us
 			try {
 				const payload = await encryptFor(identity, message.peer, message.body);
-				await sendMessage(RELAY_URL, token, message.peer, payload);
+				await sendMessage(token, message.peer, payload);
 				await db.messages.update(message.id, { status: 'sent' });
 			} catch (error) {
 				console.error('Failed to send message; will retry:', error);
@@ -191,7 +188,7 @@ function start(identity: Identity, session: RelaySession): void {
 	currentOwner = identity.address;
 	const owner = identity.address;
 
-	stream = streamMessages(RELAY_URL, session.token, {
+	stream = streamMessages(session.token, {
 		// (Re)connected: push anything that queued while we were away.
 		onOpen: () => void flushOutbox(),
 		onMessage: (message) => void handleIncoming(message),

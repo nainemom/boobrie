@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import { SWRConfig } from 'swr';
 import { Redirect, Route, Router, Switch } from 'wouter';
-import { ChatPage } from './ChatPage';
-import { ChatRedirectPage } from './ChatRedirectPage';
-import { ConversationsPage } from './ConversationsPage';
-import { SettingsPage } from './SettingsPage';
 import { AuthModal } from './views/AuthModal';
+import { ChatPage } from './views/ChatPage';
+import { ChatRedirectPage } from './views/ChatRedirectPage';
+import { ConversationsPage } from './views/ConversationsPage';
+import { SettingsPage } from './views/SettingsPage';
 
 export function App() {
 	return (

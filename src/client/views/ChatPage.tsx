@@ -1,20 +1,20 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import type { UserResponse } from '@/shared/protocol';
-import { Avatar } from './components/Avatar';
-import { Button } from './components/Button';
-import { Spinner } from './components/Spinner';
-import { getUser } from './relay';
+import { Avatar } from '../components/Avatar';
+import { Button } from '../components/Button';
+import { Spinner } from '../components/Spinner';
+import { useToken } from '../services/auth';
 import {
 	useCreateConversation,
 	useMessages,
 	useSendMessage,
-} from './services/chat';
-import { RELAY_URL, useStore } from './store';
+} from '../services/chat';
+import { getUser } from '../services/user';
 
 export function ChatPage() {
 	const { address } = useParams<{ address: string }>();
-	const store = useStore();
+	const token = useToken();
 	const messages = useMessages(address);
 	const sendMessage = useSendMessage();
 	const createConversation = useCreateConversation();
@@ -25,10 +25,10 @@ export function ChatPage() {
 	const [sendError, setSendError] = useState<string | null>(null);
 
 	useEffect(() => {
-		if (!store.session) return;
+		if (!token) return;
 		setProfile(null);
 		setProfileError(null);
-		getUser(RELAY_URL, store.session.token, address)
+		getUser(address)
 			.then((res) => {
 				setProfile(res);
 				// Surface the conversation in the list the moment it's opened.
@@ -37,7 +37,7 @@ export function ChatPage() {
 			.catch((error) =>
 				setProfileError(error instanceof Error ? error.message : String(error)),
 			);
-	}, [store.session, address, createConversation]);
+	}, [token, address, createConversation]);
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
