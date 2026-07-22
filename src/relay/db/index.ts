@@ -9,14 +9,15 @@ const migrationsFolder = fileURLToPath(
 	new URL('./migrations', import.meta.url),
 );
 
-const pool = new Pool({ connectionString: config.dbUrl });
+if (!config.db) throw new Error('db config not found!');
+
+const pool = new Pool(config.db);
 export const db = drizzle(pool);
 
 /** A fresh dedicated connection for LISTEN/NOTIFY. The messaging service owns
  * its lifecycle (connect, LISTEN, reconnect) — the pool can't hold a session
  * open, and a `Client` can't be reused once its connection has ended. */
-export const createListener = (): Client =>
-	new Client({ connectionString: config.dbUrl });
+export const createListener = (): Client => new Client(config.db as never);
 
 export const initDb = async (): Promise<void> => {
 	let connected = false;
