@@ -21,6 +21,7 @@ import { base58ToBytes } from '@/shared/encoding';
 import type { Message } from '@/shared/protocol';
 import type { EncryptedPayload } from '@/shared/types';
 import { db } from '../db';
+import { playDing } from '../utils/sound';
 import {
 	getIdentity,
 	getSession,
@@ -83,6 +84,23 @@ async function decryptFrom(
 	);
 }
 
+// --- incoming-message ding --------------------------------------------------
+// A short two-tone chime for messages that arrive while you're looking away.
+// Synthesised with the Web Audio API so there's no audio asset to ship, and
+// throttled so a burst (e.g. a backlog draining on reconnect) chimes just once.
+
+/** The peer whose chat is on screen right now, parsed from the URL, or `null`. */
+function currentConversationPeer(): string | null {
+	const match = window.location.pathname.match(/^\/i\/([^/]+)/);
+	return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Ding unless you're already watching this exact chat with the tab focused. */
+function shouldAlert(sender: string): boolean {
+	const watching = document.hasFocus() && currentConversationPeer() === sender;
+	return !watching;
+}
+
 // --- the engine -------------------------------------------------------------
 
 let currentIdentity: Identity | null = null;
@@ -120,17 +138,16 @@ async function handleIncoming(message: Message): Promise<void> {
 	}
 
 	try {
-		await saveIncoming(owner, {
+		const isNew = await saveIncoming(owner, {
 			id: message.id,
 			peer: message.sender,
 			body,
 			at: new Date(message.createdAt).getTime(),
 		});
 		ack(token, message.id);
-	} catch (error) {
-		// Persisting failed (transient): leave it queued so the relay redelivers.
-		console.error('Failed to store incoming message; will retry:', error);
-	}
+		// Only a genuinely new message you aren't already looking at earns a ding.
+		if (isNew && shouldAlert(message.sender)) playDing();
+	} catch (_) {}
 }
 
 /** Drain the outbox: send every pending message, in order, flipping each to

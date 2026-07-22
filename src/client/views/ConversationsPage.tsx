@@ -66,23 +66,48 @@ export function ConversationsPage() {
 					</div>
 				) : (
 					<ul className="divide-y divide-neutral-100">
-						{conversations.map((conversation) => (
-							<li key={conversation.peer}>
-								<Link
-									href={`/i/${conversation.peer}`}
-									className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-neutral-100"
-								>
-									<Avatar
-										address={conversation.peer}
-										className="size-11 shrink-0"
-									/>
-									<span className="min-w-0 flex-1 truncate font-medium text-neutral-800">
-										{conversation.peer}
-									</span>
-									<ChevronRightIcon className="size-4 shrink-0 text-neutral-300" />
-								</Link>
-							</li>
-						))}
+						{conversations.map((conversation) => {
+							const { lastMessage, unreadCount } = conversation;
+							const hasUnread = unreadCount > 0;
+							return (
+								<li key={conversation.peer}>
+									<Link
+										href={`/i/${conversation.peer}`}
+										className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-neutral-100"
+									>
+										<Avatar
+											address={conversation.peer}
+											className="size-11 shrink-0"
+										/>
+										<div className="flex min-w-0 flex-1 flex-col">
+											<span className="truncate font-medium text-neutral-800">
+												{conversation.peer}
+											</span>
+											{lastMessage ? (
+												<span
+													className={`truncate text-sm ${
+														hasUnread
+															? 'font-medium text-neutral-700'
+															: 'text-neutral-500'
+													}`}
+												>
+													{lastMessage.direction === 'out' ? 'You: ' : ''}
+													{lastMessage.body}
+												</span>
+											) : null}
+										</div>
+										{hasUnread ? (
+											<span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-on-primary">
+												<span className="sr-only">unread messages: </span>
+												{unreadCount > 99 ? '99+' : unreadCount}
+											</span>
+										) : (
+											<ChevronRightIcon className="size-4 shrink-0 text-neutral-300" />
+										)}
+									</Link>
+								</li>
+							);
+						})}
 					</ul>
 				)}
 			</div>

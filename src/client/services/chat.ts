@@ -15,6 +15,7 @@
  * only ever reflects the database.
  */
 
+import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback } from 'react';
 import type { Message, SendMessageRequest } from '@/shared/protocol';
@@ -22,17 +23,49 @@ import { db, type StoredConversation, type StoredMessage } from '../db';
 import { authHeaders, jsonHeaders, RELAY_URL, request } from '../utils/request';
 import { useIdentity } from './auth';
 
-/** This identity's conversations, oldest first, live. `undefined` until the
- * first read resolves — so callers can tell "loading" from "none". */
-export function useConversations(): StoredConversation[] | undefined {
+/** A conversation plus the bits the list needs to render at a glance. */
+export interface ConversationSummary extends StoredConversation {
+	/** The most recent message either way, or `undefined` if none yet. */
+	lastMessage: StoredMessage | undefined;
+	/** Incoming messages not yet read. */
+	unreadCount: number;
+}
+
+/** This identity's conversations, most recently active first, each carrying its
+ * last message and unread count, live. `undefined` until the first read resolves
+ * — so callers can tell "loading" from "none". */
+export function useConversations(): ConversationSummary[] | undefined {
 	const owner = useIdentity()?.address ?? null;
-	return useLiveQuery<StoredConversation[]>(
-		() =>
-			owner
-				? db.conversations.where('owner').equals(owner).sortBy('createdAt')
-				: [],
-		[owner],
-	);
+	return useLiveQuery<ConversationSummary[]>(async () => {
+		if (!owner) return [];
+		const conversations = await db.conversations
+			.where('owner')
+			.equals(owner)
+			.toArray();
+		const summaries = await Promise.all(
+			conversations.map(async (conversation) => {
+				const lastMessage = await db.messages
+					.where('[owner+peer+at]')
+					.between(
+						[owner, conversation.peer, Dexie.minKey],
+						[owner, conversation.peer, Dexie.maxKey],
+					)
+					.last();
+				const unreadCount = await db.messages
+					.where('[owner+peer]')
+					.equals([owner, conversation.peer])
+					.filter((message) => message.direction === 'in' && !message.read)
+					.count();
+				return { ...conversation, lastMessage, unreadCount };
+			}),
+		);
+		// Freshest chat on top; one with no messages yet falls back to its
+		// creation time.
+		return summaries.sort(
+			(a, b) =>
+				(b.lastMessage?.at ?? b.createdAt) - (a.lastMessage?.at ?? a.createdAt),
+		);
+	}, [owner]);
 }
 
 /** The conversation with `address`, oldest message first, live. `undefined`
@@ -80,19 +113,23 @@ export async function enqueueOutgoing(
 			body,
 			at: Date.now(),
 			status: 'pending',
+			read: true,
 		});
 	});
 }
 
-/** Persist a decrypted incoming message. Idempotent on the relay id, since
- * delivery is at-least-once and the same message may arrive twice. */
+/** Persist a decrypted incoming message, arriving unread. Idempotent on the
+ * relay id, since delivery is at-least-once and the same message may arrive
+ * twice: a redelivery is left untouched (never re-marked unread) and reported as
+ * not-new. Resolves `true` only when the message was genuinely new. */
 export async function saveIncoming(
 	owner: string,
 	message: { id: string; peer: string; body: string; at: number },
-): Promise<void> {
-	await db.transaction('rw', db.conversations, db.messages, async () => {
+): Promise<boolean> {
+	return db.transaction('rw', db.conversations, db.messages, async () => {
 		await ensureConversation(owner, message.peer);
-		await db.messages.put({
+		if (await db.messages.get(message.id)) return false;
+		await db.messages.add({
 			id: message.id,
 			owner,
 			peer: message.peer,
@@ -100,7 +137,9 @@ export async function saveIncoming(
 			body: message.body,
 			at: message.at,
 			status: 'received',
+			read: false,
 		});
+		return true;
 	});
 }
 
@@ -127,6 +166,30 @@ export function useSendMessage(): (
 		async (peer: string, body: string) => {
 			if (!owner) throw new Error('Not signed in.');
 			await enqueueOutgoing(owner, peer, body);
+		},
+		[owner],
+	);
+}
+
+/** Mark every unread incoming message from `peer` as read. */
+export async function markConversationRead(
+	owner: string,
+	peer: string,
+): Promise<void> {
+	await db.messages
+		.where('[owner+peer]')
+		.equals([owner, peer])
+		.filter((message) => message.direction === 'in' && !message.read)
+		.modify({ read: true });
+}
+
+/** Clear the unread badge for a conversation — call it while the chat is open. */
+export function useMarkConversationRead(): (peer: string) => Promise<void> {
+	const owner = useIdentity()?.address ?? null;
+	return useCallback(
+		async (peer: string) => {
+			if (!owner) return;
+			await markConversationRead(owner, peer);
 		},
 		[owner],
 	);

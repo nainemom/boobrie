@@ -7,6 +7,7 @@ import { Spinner } from '../components/Spinner';
 import { useToken } from '../services/auth';
 import {
 	useCreateConversation,
+	useMarkConversationRead,
 	useMessages,
 	useSendMessage,
 } from '../services/chat';
@@ -18,6 +19,7 @@ export function ChatPage() {
 	const messages = useMessages(address);
 	const sendMessage = useSendMessage();
 	const createConversation = useCreateConversation();
+	const markRead = useMarkConversationRead();
 
 	const [profile, setProfile] = useState<UserResponse | null>(null);
 	const [profileError, setProfileError] = useState<string | null>(null);
@@ -38,6 +40,19 @@ export function ChatPage() {
 				setProfileError(error instanceof Error ? error.message : String(error)),
 			);
 	}, [token, address, createConversation]);
+
+	// Seeing the chat — opening it, a message landing while it's on screen, or the
+	// tab regaining focus — clears its unread badge. Gated on focus so messages
+	// that arrive while you're looking elsewhere stay unread (and keep dinging).
+	useEffect(() => {
+		if (!messages || messages.length === 0) return;
+		const markIfFocused = () => {
+			if (document.hasFocus()) void markRead(address);
+		};
+		markIfFocused();
+		window.addEventListener('focus', markIfFocused);
+		return () => window.removeEventListener('focus', markIfFocused);
+	}, [messages, address, markRead]);
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();

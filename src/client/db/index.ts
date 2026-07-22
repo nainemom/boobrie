@@ -29,6 +29,9 @@ export interface StoredMessage {
 	/** Epoch millis, stamped locally on enqueue / on receipt. */
 	at: number;
 	status: MessageStatus;
+	/** Whether the local user has seen this message. Outgoing messages are always
+	 * `true`; incoming ones start `false` and flip when their chat is opened. */
+	read: boolean;
 }
 
 export const db = new Dexie('boobrie') as Dexie & {
@@ -49,3 +52,21 @@ db.version(2).stores({
 	// the outbox (pending messages waiting to be sent).
 	messages: 'id, [owner+peer], [owner+status]',
 });
+
+db.version(3)
+	.stores({
+		auth: '',
+		conversations: '[owner+peer], owner',
+		// [owner+peer+at] finds a conversation's most recent message in one read.
+		messages: 'id, [owner+peer], [owner+status], [owner+peer+at]',
+	})
+	// Everything predating read tracking counts as already seen, so upgrading
+	// never surfaces a wall of unread badges.
+	.upgrade((tx) =>
+		tx
+			.table('messages')
+			.toCollection()
+			.modify((message) => {
+				message.read = true;
+			}),
+	);
