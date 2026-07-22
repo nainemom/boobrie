@@ -16,7 +16,7 @@ function readVapid() {
 	return {
 		publicKey,
 		privateKey,
-		subject: process.env.VAPID_SUBJECT ?? 'mailto:admin@boobrie.local',
+		subject: process.env.VAPID_SUBJECT,
 	};
 }
 
