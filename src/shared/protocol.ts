@@ -54,10 +54,6 @@ export interface MeResponse {
 	handle: string | null;
 	/** Whether this user can be offered to others in random chat. */
 	discoverable: boolean;
-	/** True while the account is a paid member (`now < paidUntil`). */
-	paid: boolean;
-	/** ISO-8601 instant the paid membership runs out, or null if never paid. */
-	paidUntil: string | null;
 	/** The device push subscription on record, or null if none is registered. */
 	pushSubscription: PushSubscriptionJson | null;
 	/** The relay's Web Push VAPID public key, or null when push is not configured.
@@ -184,27 +180,4 @@ export type RandomMatchRequest = z.infer<typeof randomMatchSchema>;
  * when no one else is currently online. */
 export interface RandomMatchResponse {
 	address: string | null;
-}
-
-// --- Deposits (paid membership) --------------------------------------------
-
-/** `POST /billing/deposit` body — the amount to deposit, priced in USD (USDT
- * tracks USD 1:1). The USDT actually received is converted into paid time. */
-export const createDepositSchema = z.object({
-	amount: z
-		.number()
-		.positive('amount must be greater than zero')
-		.max(1_000_000, 'amount is too large'),
-});
-export type CreateDepositRequest = z.infer<typeof createDepositSchema>;
-
-/** `POST /billing/deposit` reply — where and how much USDT to send. The account
- * becomes paid once the provider confirms the transfer on-chain and calls the IPN. */
-export interface CreateDepositResponse {
-	/** On-chain address to send USDT to. */
-	payAddress: string;
-	/** Exact USDT amount to send (decimal string). */
-	payAmount: string;
-	/** Pay currency ticker, e.g. `usdttrc20`. */
-	payCurrency: string;
 }

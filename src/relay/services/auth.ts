@@ -23,7 +23,6 @@ import type { AuthClaims } from '@/shared/types';
 import { config } from '../config.ts';
 import { db } from '../db/index.ts';
 import { users } from '../db/schema.ts';
-import { paidUntilOf } from './billing.ts';
 import { signToken, verifyToken } from './jwt.ts';
 import { getSubscription, vapidPublicKey } from './push.ts';
 
@@ -53,14 +52,11 @@ const buildMe = async (address: string): Promise<MeResponse | null> => {
 		.limit(1);
 	if (!user) return null;
 
-	const paidUntil = await paidUntilOf(address);
 	return {
 		address: user.address,
 		role: user.role,
 		handle: user.handle,
 		discoverable: user.discoverable,
-		paid: paidUntil !== null && paidUntil > new Date(),
-		paidUntil: paidUntil?.toISOString() ?? null,
 		pushSubscription: await getSubscription(address),
 		vapidPublicKey: vapidPublicKey(),
 		createdAt: user.createdAt,

@@ -1,69 +1,9 @@
 {
-  "id": "39735ca8-fc64-4874-901d-141cc9e608ab",
+  "id": "b89cf27b-fa43-415f-9591-682314c81b6f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.deposits": {
-      "name": "deposits",
-      "schema": "",
-      "columns": {
-        "payment_id": {
-          "name": "payment_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "address": {
-          "name": "address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_micros": {
-          "name": "amount_micros",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "granted_ms": {
-          "name": "granted_ms",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "deposits_address_idx": {
-          "name": "deposits_address_idx",
-          "columns": [
-            {
-              "expression": "address",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.pending_messages": {
       "name": "pending_messages",
       "schema": "",
@@ -246,6 +186,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "discoverable": {
+          "name": "discoverable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "created_at": {
           "name": "created_at",

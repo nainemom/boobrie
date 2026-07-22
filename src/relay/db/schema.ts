@@ -1,11 +1,4 @@
-import {
-	bigint,
-	boolean,
-	index,
-	pgTable,
-	text,
-	timestamp,
-} from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { ROLES } from '@/shared/types';
 
 export const pendingMessages = pgTable(
@@ -48,20 +41,6 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 		.notNull()
 		.defaultNow(),
 });
-
-export const deposits = pgTable(
-	'deposits',
-	{
-		paymentId: text('payment_id').primaryKey(),
-		address: text('address').notNull(),
-		amountMicros: bigint('amount_micros', { mode: 'number' }).notNull(),
-		grantedMs: bigint('granted_ms', { mode: 'number' }).notNull(),
-		createdAt: timestamp('created_at', { withTimezone: true })
-			.notNull()
-			.defaultNow(),
-	},
-	(table) => [index('deposits_address_idx').on(table.address)],
-);
 
 export const sessions = pgTable(
 	'sessions',

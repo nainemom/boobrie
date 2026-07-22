@@ -226,36 +226,6 @@ export function SettingsPage() {
 						)}
 					</Section>
 
-					<Section title="Membership">
-						{profile ? (
-							<dl className="flex flex-col gap-2 text-sm">
-								<Row
-									label="Plan"
-									value={
-										profile.paid
-											? `Paid${
-													profile.paidUntil
-														? ` · until ${new Date(profile.paidUntil).toLocaleDateString()}`
-														: ''
-												}`
-											: 'Free'
-									}
-								/>
-								<Row
-									label="Member since"
-									value={new Date(profile.createdAt).toLocaleDateString()}
-								/>
-								{profile.role === 'admin' ? (
-									<Row label="Role" value="Admin" />
-								) : null}
-							</dl>
-						) : (
-							<div className="flex justify-center py-2">
-								<Spinner className="text-neutral-300" />
-							</div>
-						)}
-					</Section>
-
 					<Section title="Account">
 						<p className="text-sm text-neutral-500">
 							Logging out removes this account's key from this device. You'll
@@ -285,13 +255,6 @@ const Section: FC<{ title: string; children: ReactNode }> = ({
 		</h2>
 		{children}
 	</section>
-);
-
-const Row: FC<{ label: string; value: ReactNode }> = ({ label, value }) => (
-	<div className="flex items-center justify-between gap-4">
-		<dt className="text-neutral-500">{label}</dt>
-		<dd className="font-medium text-neutral-800">{value}</dd>
-	</div>
 );
 
 const Toggle: FC<{

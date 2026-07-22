@@ -10,7 +10,6 @@ import {
 	requireAuth,
 	verifyHandler,
 } from './services/auth.ts';
-import { createDepositHandler, ipnHandler } from './services/billing.ts';
 import {
 	presenceHandler,
 	randomMatchHandler,
@@ -78,11 +77,6 @@ async function main() {
 	});
 	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
 	app.post('/random', randomMatchHandler, { middleware: [requireAuth] });
-	app.post('/billing/deposit', createDepositHandler, {
-		middleware: [requireAuth],
-	});
-	// Provider callback — no session; authenticated by its HMAC signature instead.
-	app.post('/billing/ipn', ipnHandler);
 	app.get('/handles/:handle', redirectUserHandler('/users/:address'), {
 		middleware: [requireAuth],
 	});

@@ -1,7 +1,5 @@
 import { type FetchHook, ofetch } from 'ofetch';
 import type {
-	CreateDepositRequest,
-	CreateDepositResponse,
 	EditDiscoverableRequest,
 	EditHandleRequest,
 	EditPushSubscriptionRequest,
@@ -31,6 +29,7 @@ const api = ofetch.create({
 	onRequest: [attachToken],
 	onResponseError: [
 		async ({ response }) => {
+			console.log(response);
 			if (response?.status === 401 && getSession()?.token) {
 				await restore();
 			}
@@ -171,12 +170,6 @@ export const getUserByHandle = (handle: string) =>
 
 export const getRandomMatch = (body: RandomMatchRequest) =>
 	api<RandomMatchResponse>('/random', {
-		method: 'POST',
-		body,
-	});
-
-export const createDeposit = (body: CreateDepositRequest) =>
-	api<CreateDepositResponse>('/billing/deposit', {
 		method: 'POST',
 		body,
 	});

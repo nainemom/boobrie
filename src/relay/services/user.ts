@@ -12,7 +12,6 @@ import {
 } from '@/shared/protocol';
 import { db } from '../db/index.ts';
 import { users } from '../db/schema.ts';
-import { isPaid } from './billing.ts';
 
 export const redirectUserHandler = (newPath: string) =>
 	defineHandler(async (event) => {
@@ -29,9 +28,7 @@ export const redirectUserHandler = (newPath: string) =>
 			.where(eq(users.handle, handle))
 			.limit(1);
 
-		// The handle only resolves while its owner is a paid member; otherwise it
-		// reads as if the handle doesn't exist.
-		if (!record || !(await isPaid(record.address))) {
+		if (!record) {
 			throw new HTTPError({ status: 404, message: 'user not found' });
 		}
 
