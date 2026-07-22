@@ -6,6 +6,7 @@
 	"engines": {
 		"node": "24.18"
 	},
+	"main": "./src/relay/main.ts",
 	"scripts": {
 		"lefthook:install": "lefthook install",
 		"prepare": "run-s lefthook:install lint:fix",
