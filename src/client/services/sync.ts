@@ -28,13 +28,13 @@ import {
 	type RelaySession,
 	subscribe as subscribeAuth,
 } from './auth';
+import { saveIncoming } from './chat';
 import {
 	type MessageStream,
 	readMessage,
-	saveIncoming,
 	sendMessage,
 	streamMessages,
-} from './chat';
+} from './relay';
 
 /** How long to wait before retrying the outbox after a send fails. */
 const RETRY_MS = 5000;
@@ -114,8 +114,8 @@ let flushing = false;
 let flushAgain = false;
 
 /** Tell the relay a message was received, so it drops its stored copy. */
-function ack(token: string, id: string): void {
-	readMessage(token, id).catch((error) =>
+function ack(id: string): void {
+	readMessage(id).catch((error) =>
 		console.error('Failed to ack message:', error),
 	);
 }
@@ -133,7 +133,7 @@ async function handleIncoming(message: Message): Promise<void> {
 		// Not for us / tampered: drop it so the relay stops redelivering, but
 		// never let it reach the database.
 		console.error('Failed to decrypt incoming message; dropping:', error);
-		ack(token, message.id);
+		ack(message.id);
 		return;
 	}
 
@@ -144,7 +144,7 @@ async function handleIncoming(message: Message): Promise<void> {
 			body,
 			at: new Date(message.createdAt).getTime(),
 		});
-		ack(token, message.id);
+		ack(message.id);
 		// Only a genuinely new message you aren't already looking at earns a ding.
 		if (isNew && shouldAlert(message.sender)) playDing();
 	} catch (_) {}
@@ -171,7 +171,7 @@ async function flushOutbox(): Promise<void> {
 			if (currentToken !== token) break; // session changed under us
 			try {
 				const payload = await encryptFor(identity, message.peer, message.body);
-				await sendMessage(token, message.peer, payload);
+				await sendMessage({ recipient: message.peer, payload });
 				await db.messages.update(message.id, { status: 'sent' });
 			} catch (error) {
 				console.error('Failed to send message; will retry:', error);
@@ -205,7 +205,7 @@ function start(identity: Identity, session: RelaySession): void {
 	currentOwner = identity.address;
 	const owner = identity.address;
 
-	stream = streamMessages(session.token, {
+	stream = streamMessages({
 		// (Re)connected: push anything that queued while we were away.
 		onOpen: () => void flushOutbox(),
 		onMessage: (message) => void handleIncoming(message),

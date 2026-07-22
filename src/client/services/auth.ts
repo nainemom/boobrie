@@ -1,3 +1,4 @@
+import { ofetch } from 'ofetch';
 import { useSyncExternalStore } from 'react';
 import { addressOf, type Identity } from '@/shared/auth';
 import { openSeal } from '@/shared/crypto';
@@ -6,9 +7,18 @@ import { mnemonicToKeyPair } from '@/shared/mnemonic';
 import type { ChallengeResponse, VerifyResponse } from '@/shared/protocol';
 import { db } from '../db';
 import { createExternalStore } from '../utils/react';
-import { request } from '../utils/request';
 
 export { generateIdentity as generate } from '@/shared/auth';
+
+const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
+
+const api = ofetch.create({
+	baseURL: RELAY_URL,
+	headers: { 'content-type': 'application/json' },
+	retry: 3,
+	retryDelay: 3000,
+	retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
+});
 
 const KEY_ID = 'keyPair';
 
@@ -57,19 +67,17 @@ async function authenticate(
 		address: await addressOf(keyPair),
 		mnemonic,
 	};
-	const { challengeToken, box } = await request<ChallengeResponse>(
+	const { challengeToken, box } = await api<ChallengeResponse>(
 		'/auth/challenge',
 		{
 			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ address: identity.address }),
+			body: { address: identity.address },
 		},
 	);
 	const nonce = await openSeal(identity.keyPair.privateKey, box);
-	const authResult = await request<VerifyResponse>('/auth/verify', {
+	const authResult = await api<VerifyResponse>('/auth/verify', {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ challengeToken, response: bytesToBase58(nonce) }),
+		body: { challengeToken, response: bytesToBase58(nonce) },
 	});
 	const session = {
 		token: authResult.token,
@@ -97,16 +105,18 @@ export async function logout(): Promise<void> {
 	await deleteKeyPair();
 }
 
-let restoring: Promise<void> | null = null;
-export function restore(): Promise<void> {
+let restoring: Promise<boolean> | null = null;
+export function restore(): Promise<boolean> {
 	if (!restoring) {
 		restoring = (async () => {
 			const keyPair = await loadKeyPair().catch(() => undefined);
-			if (!keyPair) return;
+			if (!keyPair) return false;
 			try {
 				await authenticate(keyPair);
+				return true;
 			} catch {
 				await deleteKeyPair();
+				return false;
 			}
 		})();
 	}

@@ -11,7 +11,7 @@ import {
 	useMessages,
 	useSendMessage,
 } from '../services/chat';
-import { getUser } from '../services/user';
+import { getUser } from '../services/relay';
 
 export function ChatPage() {
 	const { address } = useParams<{ address: string }>();

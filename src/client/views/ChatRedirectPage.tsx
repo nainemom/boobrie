@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useToken } from '../services/auth';
-import { getHandle } from '../services/user';
+import { getUserByHandle } from '../services/relay';
 
 export function ChatRedirectPage() {
 	const { handle } = useParams<{ handle: string }>();
@@ -10,7 +10,7 @@ export function ChatRedirectPage() {
 
 	useEffect(() => {
 		if (!token) return;
-		getHandle(handle).then((res) => {
+		getUserByHandle(handle).then((res) => {
 			setLocation(`/i/${res.address}`);
 		});
 	}, [token, handle, setLocation]);

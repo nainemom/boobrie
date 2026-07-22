@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
-import { getRandomMatch } from '../services/user';
+import { getRandomMatch } from '../services/relay';
 
 /** A deliberate suspense beat before each relay ask, so a match never pops in
  * instantly. Doubles as the poll interval while waiting for someone to appear. */
@@ -40,7 +40,7 @@ export function RandomChatModal({ onClose }: { onClose: () => void }) {
 		// a match or — if no one is online yet — go around again.
 		const attempt = () => {
 			delayTimer.current = setTimeout(() => {
-				getRandomMatch(skipped.current)
+				getRandomMatch({ exclude: skipped.current })
 					.then((res) => {
 						if (searchId.current !== id) return;
 						if (res.address === null) attempt();

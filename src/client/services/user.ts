@@ -1,7 +1,7 @@
 /**
  * The user service: everything about *who you are on the relay* — your profile
- * (handle, membership, VAPID key) and this device's Web Push wiring — plus
- * looking other users up by address or handle.
+ * (handle, membership, VAPID key) and this device's Web Push wiring. The relay
+ * calls it drives live in {@link file://./relay.ts}.
  *
  * Identity and session (the mnemonic-derived key pair and its relay token) live
  * in the auth service ({@link file://./auth.ts}); this service *reacts* to it,
@@ -14,22 +14,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { Identity } from '@/shared/auth';
-import type {
-	CreateDepositRequest,
-	CreateDepositResponse,
-	EditDiscoverableRequest,
-	EditDiscoverableResponse,
-	EditHandleRequest,
-	EditHandleResponse,
-	EditPushSubscriptionRequest,
-	EditPushSubscriptionResponse,
-	MeResponse,
-	RandomMatchRequest,
-	RandomMatchResponse,
-	UserResponse,
-} from '@/shared/protocol';
-import type { PushSubscriptionJson } from '@/shared/types';
-import { authHeaders, jsonHeaders, request } from '../utils/request';
+import type { MeResponse } from '@/shared/protocol';
 import {
 	getIdentity,
 	getSession,
@@ -43,93 +28,12 @@ import {
 	subscribeToPush,
 	unsubscribeFromPush,
 } from './push';
-
-// --- relay calls -----------------------------------------------------------
-// Each presents the current session token; they throw if there isn't one.
-
-function requireToken(): string {
-	const token = getSession()?.token;
-	if (!token) throw new Error('Not authenticated.');
-	return token;
-}
-
-/** This account's own profile — handle, membership, VAPID key. */
-export function getMe(): Promise<MeResponse> {
-	return request('/auth/me', { headers: authHeaders(requireToken()) });
-}
-
-/** Set (or clear, with `null`) this account's handle. */
-export function updateHandle(
-	handle: string | null,
-): Promise<EditHandleResponse> {
-	return request('/auth/me/handle', {
-		method: 'PATCH',
-		headers: jsonHeaders(requireToken()),
-		body: JSON.stringify({ handle } satisfies EditHandleRequest),
-	});
-}
-
-/** Opt this account in or out of being offered to others in random chat. */
-export function setDiscoverable(
-	discoverable: boolean,
-): Promise<EditDiscoverableResponse> {
-	return request('/auth/me/discoverable', {
-		method: 'PATCH',
-		headers: jsonHeaders(requireToken()),
-		body: JSON.stringify({ discoverable } satisfies EditDiscoverableRequest),
-	});
-}
-
-/** Register (or clear, with `null`) this device's push subscription. */
-export function editPushSubscription(
-	pushSubscription: PushSubscriptionJson | null,
-): Promise<EditPushSubscriptionResponse> {
-	return request('/auth/me/push-subscription', {
-		method: 'PUT',
-		headers: jsonHeaders(requireToken()),
-		body: JSON.stringify({
-			pushSubscription,
-		} satisfies EditPushSubscriptionRequest),
-	});
-}
-
-/** Resolve a handle to its owner's public profile. */
-export function getHandle(handle: string): Promise<UserResponse> {
-	return request(`/handles/${encodeURIComponent(handle)}`, {
-		headers: authHeaders(requireToken()),
-	});
-}
-
-/** Another user's public profile, by address. */
-export function getUser(address: string): Promise<UserResponse> {
-	return request(`/users/${encodeURIComponent(address)}`, {
-		headers: authHeaders(requireToken()),
-	});
-}
-
-/** Pick a random online user to chat with, skipping any already seen (pass their
- * addresses in `exclude`). The returned address is null when no one else is
- * currently online. */
-export function getRandomMatch(
-	exclude: string[] = [],
-): Promise<RandomMatchResponse> {
-	return request('/random', {
-		method: 'POST',
-		headers: jsonHeaders(requireToken()),
-		body: JSON.stringify({ exclude } satisfies RandomMatchRequest),
-	});
-}
-
-/** Open a USDT deposit for `amount` (USD); returns where and how much to send.
- * The account becomes paid once the provider confirms the transfer on-chain
- * (see `paid`/`paidUntil` on {@link getMe}). */
-export function createDeposit(amount: number): Promise<CreateDepositResponse> {
-	return request('/billing/deposit', {
-		method: 'POST',
-		headers: jsonHeaders(requireToken()),
-		body: JSON.stringify({ amount } satisfies CreateDepositRequest),
-	});
-}
+import {
+	editPushSubscription,
+	getMe,
+	setDiscoverable,
+	updateHandle,
+} from './relay';
 
 // --- reactive profile & push state -----------------------------------------
 
@@ -189,7 +93,7 @@ function reassertPushSubscription(): void {
 			set({ pushStatus: 'idle' });
 			return;
 		}
-		editPushSubscription(subscription)
+		editPushSubscription({ pushSubscription: subscription })
 			.then(() => set({ pushStatus: 'subscribed' }))
 			.catch((error) => {
 				// The browser still holds its subscription, but the relay didn't
@@ -249,12 +153,12 @@ syncFromAuth();
 // --- actions ---------------------------------------------------------------
 
 export async function changeHandle(handle: string): Promise<void> {
-	const res = await updateHandle(handle);
+	const res = await updateHandle({ handle });
 	set({ me: state.me ? { ...state.me, handle: res.handle } : state.me });
 }
 
 export async function changeDiscoverable(discoverable: boolean): Promise<void> {
-	const res = await setDiscoverable(discoverable);
+	const res = await setDiscoverable({ discoverable });
 	set({
 		me: state.me ? { ...state.me, discoverable: res.discoverable } : state.me,
 	});
@@ -277,7 +181,7 @@ export async function enablePush(): Promise<void> {
 	set({ pushError: null, pushStatus: 'subscribing' });
 	try {
 		const subscription = await subscribeToPush(vapidPublicKey);
-		await editPushSubscription(subscription);
+		await editPushSubscription({ pushSubscription: subscription });
 		set({ pushStatus: 'subscribed' });
 	} catch (error) {
 		set({
@@ -292,7 +196,7 @@ export async function disablePush(): Promise<void> {
 	set({ pushError: null, pushStatus: 'unsubscribing' });
 	try {
 		await unsubscribeFromPush();
-		await editPushSubscription(null);
+		await editPushSubscription({ pushSubscription: null });
 		set({ pushStatus: 'idle' });
 	} catch (error) {
 		set({
