@@ -15,7 +15,7 @@
 		"lint:ci": "biome ci",
 		"lint:fix": "biome check --write --unsafe",
 		"bump": "./bump.sh",
-		"postinstall": "prisma generate",
+		"db:generate": "prisma generate",
 		"db:migrate": "prisma migrate dev",
 		"db:deploy": "prisma migrate deploy",
 		"test": "echo \"All fake tests passed!\"",
