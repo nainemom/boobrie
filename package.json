@@ -20,7 +20,7 @@
 		"db:apply-migrations": "prisma migrate deploy",
 		"test": "echo \"All fake tests passed!\"",
 		"typecheck": "tsc --noEmit",
-		"build:client-ts": "tsc -b ./tsconfig.client.json",
+		"build:client-ts": "tsc -b",
 		"build:client-vite": "vite build",
 		"build:client": "run-s build:client-ts build:client-vite",
 		"dev:client": "vite",
