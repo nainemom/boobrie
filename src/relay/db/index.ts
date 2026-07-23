@@ -1,14 +1,8 @@
-import { execFile } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client, Pool } from 'pg';
 import { sleep } from '@/shared/utils.ts';
 import { config } from '../config.ts';
 import { PrismaClient } from './generated/client.ts';
-
-const execFileAsync = promisify(execFile);
-const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
 if (!config.dbUrl) throw new Error('db config not found!');
 
@@ -35,8 +29,4 @@ export const initDb = async (): Promise<void> => {
 			await sleep(2000);
 		}
 	}
-
-	await execFileAsync('npx', ['prisma', 'migrate', 'deploy'], {
-		cwd: repoRoot,
-	});
 };
