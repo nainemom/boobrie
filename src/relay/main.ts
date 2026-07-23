@@ -45,7 +45,7 @@ async function main() {
 	// CORS for every route; preflight requests are answered here and stop.
 	app.use((event) => {
 		const cors = handleCors(event, {
-			origin: config.corsOrigin === true ? '*' : [config.corsOrigin],
+			origin: config.corsOrigin,
 			methods: '*',
 		});
 		if (cors !== false) return cors;

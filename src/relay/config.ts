@@ -19,7 +19,7 @@ export const config = {
 	jwtSecret: process.env.JWT_SECRET ?? '---',
 	challengeTtlMs: 2 * MINUTE,
 	sessionTtlMs: 1 * HOUR,
-	corsOrigin: process.env.RELAY_CORS_ORIGIN ?? true,
+	corsOrigin: process.env.CORS_ORIGIN?.split(' ') || '*',
 	dbUrl: process.env.DB_POSTGRES_URL ?? '',
 	vapid: readVapid(),
 } as const;
