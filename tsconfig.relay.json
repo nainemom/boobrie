@@ -1,10 +1,10 @@
 {
 	"compilerOptions": {
-		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.relay.tsbuildinfo",
 		"target": "es2023",
-		"lib": ["ES2023", "WebWorker"],
+		"lib": ["ES2023"],
 		"module": "esnext",
-		"types": ["@serwist/vite/typings"],
+		"types": ["node"],
 		"allowArbitraryExtensions": true,
 		"skipLibCheck": true,
 
@@ -26,6 +26,10 @@
 			"@/*": ["./src/*"]
 		}
 	},
-	"include": ["src/client/sw.ts"],
-	"exclude": []
+	"include": [
+		"src/relay",
+		"vite.config.ts",
+		"commitlint.config.ts",
+		"prisma.config.ts"
+	]
 }
