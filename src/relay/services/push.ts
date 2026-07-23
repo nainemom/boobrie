@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import { defineHandler, readValidatedBody } from 'h3';
 import webPush from 'web-push';
 import { log } from '@/shared/log';
@@ -9,7 +8,6 @@ import {
 import type { PushPayload, PushSubscriptionJson } from '@/shared/types';
 import { config } from '../config.ts';
 import { db } from '../db/index.ts';
-import { pushSubscriptions } from '../db/schema.ts';
 
 const { sendNotification, setVapidDetails, WebPushError } = webPush;
 
@@ -33,19 +31,15 @@ export const saveSubscription = async (
 	subscription: PushSubscriptionJson,
 ) => {
 	const serialized = JSON.stringify(subscription);
-	return await db
-		.insert(pushSubscriptions)
-		.values({ address, subscription: serialized })
-		.onConflictDoUpdate({
-			target: pushSubscriptions.address,
-			set: { subscription: serialized },
-		});
+	return await db.pushSubscription.upsert({
+		where: { address },
+		create: { address, subscription: serialized },
+		update: { subscription: serialized },
+	});
 };
 
 export const deleteSubscription = async (address: string) => {
-	return await db
-		.delete(pushSubscriptions)
-		.where(eq(pushSubscriptions.address, address));
+	return await db.pushSubscription.deleteMany({ where: { address } });
 };
 
 export const editPushSubscriptionHandler = defineHandler(async (event) => {
@@ -69,11 +63,10 @@ export const editPushSubscriptionHandler = defineHandler(async (event) => {
 export const getSubscription = async (
 	address: string,
 ): Promise<PushSubscriptionJson | null> => {
-	const [row] = await db
-		.select({ subscription: pushSubscriptions.subscription })
-		.from(pushSubscriptions)
-		.where(eq(pushSubscriptions.address, address))
-		.limit(1);
+	const row = await db.pushSubscription.findUnique({
+		where: { address },
+		select: { subscription: true },
+	});
 	if (!row) return null;
 	try {
 		return JSON.parse(row.subscription) as PushSubscriptionJson;

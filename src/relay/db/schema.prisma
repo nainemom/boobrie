@@ -1,0 +1,46 @@
+generator client {
+	provider = "prisma-client"
+	output   = "./generated"
+}
+
+datasource db {
+	provider = "postgresql"
+}
+
+model PendingMessage {
+	id        String   @id @default(uuid())
+	sender    String
+	recipient String
+	payload   String
+	createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+	@@index([recipient, id])
+	@@map("pending_messages")
+}
+
+model User {
+	address      String   @id
+	role         String   @default("user")
+	handle       String?  @unique
+	discoverable Boolean  @default(true)
+	createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+	@@map("users")
+}
+
+model PushSubscription {
+	address      String   @id
+	subscription String
+	createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+	@@map("push_subscriptions")
+}
+
+model Session {
+	id        String   @id @default(uuid())
+	address   String
+	createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+	@@index([address])
+	@@map("sessions")
+}

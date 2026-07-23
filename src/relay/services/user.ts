@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import {
 	defineHandler,
 	getValidatedRouterParams,
@@ -11,7 +10,6 @@ import {
 	userParamsSchema,
 } from '@/shared/protocol';
 import { db } from '../db/index.ts';
-import { users } from '../db/schema.ts';
 
 export const redirectUserHandler = (newPath: string) =>
 	defineHandler(async (event) => {
@@ -20,13 +18,10 @@ export const redirectUserHandler = (newPath: string) =>
 			redirectUserSchema,
 		);
 
-		const [record] = await db
-			.select({
-				address: users.address,
-			})
-			.from(users)
-			.where(eq(users.handle, handle))
-			.limit(1);
+		const record = await db.user.findUnique({
+			where: { handle },
+			select: { address: true },
+		});
 
 		if (!record) {
 			throw new HTTPError({ status: 404, message: 'user not found' });
@@ -38,11 +33,7 @@ export const redirectUserHandler = (newPath: string) =>
 export const getUserHandler = defineHandler(async (event) => {
 	const { address } = await getValidatedRouterParams(event, userParamsSchema);
 
-	const [record] = await db
-		.select()
-		.from(users)
-		.where(eq(users.address, address))
-		.limit(1);
+	const record = await db.user.findUnique({ where: { address } });
 
 	if (!record) {
 		throw new HTTPError({ status: 404, message: 'user not found' });

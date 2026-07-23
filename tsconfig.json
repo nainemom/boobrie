@@ -31,7 +31,7 @@
 		"src",
 		"vite.config.ts",
 		"commitlint.config.ts",
-		"drizzle.config.ts"
+		"prisma.config.ts"
 	],
 	"exclude": ["src/client/sw.ts"]
 }

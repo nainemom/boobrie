@@ -1,5 +1,4 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { eq } from 'drizzle-orm';
 import {
 	defineHandler,
 	defineMiddleware,
@@ -19,10 +18,9 @@ import {
 	type VerifyResponse,
 	verifySchema,
 } from '@/shared/protocol';
-import type { AuthClaims } from '@/shared/types';
+import type { AuthClaims, Role } from '@/shared/types';
 import { config } from '../config.ts';
 import { db } from '../db/index.ts';
-import { users } from '../db/schema.ts';
 import { signToken, verifyToken } from './jwt.ts';
 import { getSubscription, vapidPublicKey } from './push.ts';
 
@@ -45,16 +43,12 @@ const sha256 = (bytes: Uint8Array): Buffer =>
 
 /** Assemble the full `GET /auth/me` view for an address, or null if unknown. */
 const buildMe = async (address: string): Promise<MeResponse | null> => {
-	const [user] = await db
-		.select()
-		.from(users)
-		.where(eq(users.address, address))
-		.limit(1);
+	const user = await db.user.findUnique({ where: { address } });
 	if (!user) return null;
 
 	return {
 		address: user.address,
-		role: user.role,
+		role: user.role as Role,
 		handle: user.handle,
 		discoverable: user.discoverable,
 		pushSubscription: await getSubscription(address),
@@ -138,16 +132,15 @@ export const verifyHandler = defineHandler(async (event) => {
 		throw new HTTPError({ status: 401, message: 'wrong response' });
 	}
 
-	const inserted = await db
-		.insert(users)
-		.values({ address: claims.address })
-		.onConflictDoNothing()
-		.returning({ address: users.address });
+	const inserted = await db.user.createMany({
+		data: [{ address: claims.address }],
+		skipDuplicates: true,
+	});
 
 	return {
 		token: signToken({ address: claims.address }, config.sessionTtlMs),
 		expiresAt: Date.now() + config.sessionTtlMs,
-		created: inserted.length > 0,
+		created: inserted.count > 0,
 	} satisfies VerifyResponse;
 });
 
@@ -162,16 +155,15 @@ export const editHandleHandler = defineHandler(async (event) => {
 	const { handle } = await readValidatedBody(event, editHandleSchema);
 
 	if (handle !== null) {
-		const [existing] = await db
-			.select({ address: users.address })
-			.from(users)
-			.where(eq(users.handle, handle))
-			.limit(1);
+		const existing = await db.user.findUnique({
+			where: { handle },
+			select: { address: true },
+		});
 		if (existing && existing.address !== address) {
 			throw new HTTPError({ status: 409, message: 'handle already taken' });
 		}
 	}
-	await db.update(users).set({ handle }).where(eq(users.address, address));
+	await db.user.update({ where: { address }, data: { handle } });
 
 	return {
 		handle,
@@ -185,10 +177,7 @@ export const editDiscoverableHandler = defineHandler(async (event) => {
 		editDiscoverableSchema,
 	);
 
-	await db
-		.update(users)
-		.set({ discoverable })
-		.where(eq(users.address, address));
+	await db.user.update({ where: { address }, data: { discoverable } });
 
 	return { discoverable } satisfies EditDiscoverableResponse;
 });

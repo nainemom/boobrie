@@ -17,7 +17,6 @@
  * announcement fired while it was deaf is gone.
  */
 
-import { and, asc, eq, gt, notInArray, sql } from 'drizzle-orm';
 import {
 	createEventStream,
 	defineHandler,
@@ -35,8 +34,8 @@ import {
 	sendMessageSchema,
 } from '@/shared/protocol';
 import { sleep } from '@/shared/utils.ts';
+import { type PendingMessage, Prisma } from '../db/generated/client.ts';
 import { createListener, db } from '../db/index.ts';
-import { pendingMessages, sessions, users } from '../db/schema.ts';
 import { notify } from './push.ts';
 
 const CHANNEL = 'chat';
@@ -47,7 +46,7 @@ const PRESENCE_TTL_MS = HEARTBEAT_MS * 3;
 
 const connections = new Map<string, ReturnType<typeof createEventStream>>();
 
-const toMessage = (row: typeof pendingMessages.$inferSelect): Message => ({
+const toMessage = (row: PendingMessage): Message => ({
 	id: row.id,
 	sender: row.sender,
 	payload: row.payload,
@@ -57,20 +56,17 @@ const toMessage = (row: typeof pendingMessages.$inferSelect): Message => ({
 /** True while address has at least 1 recently-heartbeated session on some pod. */
 const isOnline = async (address: string): Promise<boolean> => {
 	const fresh = new Date(Date.now() - PRESENCE_TTL_MS);
-	const [row] = await db
-		.select({ id: sessions.id })
-		.from(sessions)
-		.where(and(eq(sessions.address, address), gt(sessions.createdAt, fresh)))
-		.limit(1);
+	const row = await db.session.findFirst({
+		where: { address, createdAt: { gt: fresh } },
+		select: { id: true },
+	});
 	return Boolean(row);
 };
 
 /** Announce a message id on the `chat` channel so the recipient's pod loads and
  * delivers it. Only the id travels — NOTIFY payloads are capped at 8 KB. */
 const announce = async (recipient: string, id: string): Promise<void> => {
-	await db.execute(
-		sql`select pg_notify(${CHANNEL}, ${JSON.stringify({ recipient, id })})`,
-	);
+	await db.$executeRaw`select pg_notify(${CHANNEL}, ${JSON.stringify({ recipient, id })})`;
 };
 
 /** Nudge an offline recipient with a web push (best-effort). */
@@ -99,16 +95,9 @@ const handleNotification = async (msg: {
 
 	// Only the id was announced; load the row now (it may already be gone if the
 	// recipient read it via another path — that's fine, we just skip).
-	const [row] = await db
-		.select()
-		.from(pendingMessages)
-		.where(
-			and(
-				eq(pendingMessages.id, announced.id),
-				eq(pendingMessages.recipient, announced.recipient),
-			),
-		)
-		.limit(1);
+	const row = await db.pendingMessage.findFirst({
+		where: { id: announced.id, recipient: announced.recipient },
+	});
 	if (!row) return;
 
 	try {
@@ -121,11 +110,10 @@ const handleNotification = async (msg: {
 const deliverQueued = async (address: string): Promise<void> => {
 	const stream = connections.get(address);
 	if (!stream) return;
-	const queued = await db
-		.select()
-		.from(pendingMessages)
-		.where(eq(pendingMessages.recipient, address))
-		.orderBy(asc(pendingMessages.createdAt));
+	const queued = await db.pendingMessage.findMany({
+		where: { recipient: address },
+		orderBy: { createdAt: 'asc' },
+	});
 	for (const row of queued) {
 		await stream.push(JSON.stringify(toMessage(row)));
 	}
@@ -201,17 +189,16 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 	}
 
 	connections.set(address, stream);
-	const [session] = await db
-		.insert(sessions)
-		.values({ address })
-		.returning({ id: sessions.id });
+	const session = await db.session.create({
+		data: { address },
+		select: { id: true },
+	});
 
 	void stream.pushComment('connected');
 	const heartbeat = setInterval(() => {
 		void stream.pushComment('ping');
-		db.update(sessions)
-			.set({ createdAt: new Date() })
-			.where(eq(sessions.id, session.id))
+		db.session
+			.update({ where: { id: session.id }, data: { createdAt: new Date() } })
 			.catch((err) =>
 				log('warn', 'session heartbeat touch failed', address, err),
 			);
@@ -220,7 +207,7 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 	stream.onClosed(async () => {
 		clearInterval(heartbeat);
 		connections.delete(address);
-		await db.delete(sessions).where(eq(sessions.id, session.id));
+		await db.session.deleteMany({ where: { id: session.id } });
 	});
 
 	void deliverQueued(address);
@@ -235,10 +222,9 @@ export const sendMessageHandler = defineHandler(async (event) => {
 		sendMessageSchema,
 	);
 
-	const [row] = await db
-		.insert(pendingMessages)
-		.values({ sender, recipient, payload })
-		.returning();
+	const row = await db.pendingMessage.create({
+		data: { sender, recipient, payload },
+	});
 	const message = toMessage(row);
 
 	await announce(recipient, message.id);
@@ -254,11 +240,7 @@ export const readMessageHandler = defineHandler(async (event) => {
 	const address = event.context.claim?.address || '';
 	const { id } = await getValidatedRouterParams(event, messageParamsSchema);
 
-	await db
-		.delete(pendingMessages)
-		.where(
-			and(eq(pendingMessages.recipient, address), eq(pendingMessages.id, id)),
-		);
+	await db.pendingMessage.deleteMany({ where: { recipient: address, id } });
 	event.res.status = 204;
 	return null;
 });
@@ -279,20 +261,18 @@ export const randomMatchHandler = defineHandler(async (event) => {
 	const { exclude } = await readValidatedBody(event, randomMatchSchema);
 
 	const fresh = new Date(Date.now() - PRESENCE_TTL_MS);
-	const [row] = await db
-		.select({ address: sessions.address })
-		.from(sessions)
-		.innerJoin(users, eq(users.address, sessions.address))
-		.where(
-			and(
-				gt(sessions.createdAt, fresh),
-				eq(users.discoverable, true),
-				notInArray(sessions.address, [self, ...exclude]),
-			),
-		)
-		.groupBy(sessions.address)
-		.orderBy(sql`random()`)
-		.limit(1);
+	const excluded = Prisma.join([self, ...exclude]);
+	const [row] = await db.$queryRaw<{ address: string }[]>`
+		select s.address
+		from sessions s
+		inner join users u on u.address = s.address
+		where s.created_at > ${fresh}
+			and u.discoverable = true
+			and s.address not in (${excluded})
+		group by s.address
+		order by random()
+		limit 1
+	`;
 
 	return { address: row?.address ?? null } satisfies RandomMatchResponse;
 });

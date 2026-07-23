@@ -1,23 +1,29 @@
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { promisify } from 'node:util';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Client, Pool } from 'pg';
 import { sleep } from '@/shared/utils.ts';
 import { config } from '../config.ts';
+import { PrismaClient } from './generated/client.ts';
 
-const migrationsFolder = fileURLToPath(
-	new URL('./migrations', import.meta.url),
-);
+const execFileAsync = promisify(execFile);
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
-if (!config.db) throw new Error('db config not found!');
+if (!config.dbUrl) throw new Error('db config not found!');
 
-const pool = new Pool(config.db);
-export const db = drizzle(pool);
+const pool = new Pool({
+	connectionString: config.dbUrl,
+});
+export const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 /** A fresh dedicated connection for LISTEN/NOTIFY. The messaging service owns
  * its lifecycle (connect, LISTEN, reconnect) — the pool can't hold a session
  * open, and a `Client` can't be reused once its connection has ended. */
-export const createListener = (): Client => new Client(config.db as never);
+export const createListener = (): Client =>
+	new Client({
+		connectionString: config.dbUrl,
+	});
 
 export const initDb = async (): Promise<void> => {
 	let connected = false;
@@ -30,5 +36,7 @@ export const initDb = async (): Promise<void> => {
 		}
 	}
 
-	await migrate(db, { migrationsFolder });
+	await execFileAsync('npx', ['prisma', 'migrate', 'deploy'], {
+		cwd: repoRoot,
+	});
 };
