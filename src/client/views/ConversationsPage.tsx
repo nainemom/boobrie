@@ -114,7 +114,7 @@ export function ConversationsPage() {
 
 			<Button
 				iconOnly
-				size="lg"
+				size={12}
 				variant="outline"
 				onClick={() => setMatching(true)}
 				aria-label="Talk to a stranger"
@@ -125,7 +125,7 @@ export function ConversationsPage() {
 
 			<Button
 				iconOnly
-				size="lg"
+				size={12}
 				onClick={() => setCreating(true)}
 				aria-label="New chat"
 				className="absolute bottom-6 right-6 rounded-full shadow-lg"

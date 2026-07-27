@@ -2,7 +2,7 @@ import type { FC, ReactNode } from 'react';
 import { tv } from 'tailwind-variants';
 
 const panel = tv({
-	base: 'max-h-[calc(100%-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-4 text-neutral-800 shadow-xl',
+	base: 'max-h-[calc(100%-2rem)] w-full max-w-sm overflow-y-auto rounded-md bg-neutral-50 text-neutral-800 shadow-xl',
 });
 
 /**
@@ -14,7 +14,7 @@ export const Modal: FC<{ children: ReactNode; className?: string }> = ({
 	children,
 	className,
 }) => (
-	<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+	<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
 		<div className={panel({ class: className })}>{children}</div>
 	</div>
 );

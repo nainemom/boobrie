@@ -30,10 +30,27 @@ export interface ChallengeResponse {
 	box: SealedBox;
 }
 
+/** A validated handle: lowercase, starts/ends alphanumeric, single
+ * hyphen/underscore separators, and not on the reserved list. Shared so the
+ * client validates a handle the exact same way the relay enforces it. */
+export const handleSchema = z
+	.string()
+	.trim()
+	.min(1, 'Enter a handle')
+	.regex(
+		HANDLE_REGEX,
+		'Handle must be lowercase, start and end with an alphanumeric character, and contain only single hyphens or underscores (no consecutive delimiters).',
+	)
+	.refine(
+		(handle) => !RESERVED_HANDLES.includes(handle as never),
+		'Handle is reserved and cannot be used.',
+	);
+
 /** `POST /auth/verify` body. */
 export const verifySchema = z.object({
 	challengeToken: z.string().min(1, 'challengeToken and response are required'),
 	response: z.string().min(1, 'challengeToken and response are required'),
+	handle: handleSchema.optional(),
 });
 export type VerifyRequest = z.infer<typeof verifySchema>;
 
@@ -83,18 +100,7 @@ export type EditPushSubscriptionResponse = EditPushSubscriptionRequest;
 
 /** `PUT /auth/me/handle` body. */
 export const editHandleSchema = z.object({
-	handle: z
-		.string()
-		.min(1)
-		.regex(
-			HANDLE_REGEX,
-			'handle must be lowercase, start/end with an alphanumeric character, and only contain single hyphens or underscores (no consecutive delimiters)',
-		)
-		.refine(
-			(handle) => !RESERVED_HANDLES.includes(handle as never),
-			'handle is reserved and cannot be used',
-		)
-		.nullable(),
+	handle: handleSchema.nullable(),
 });
 export type EditHandleRequest = z.infer<typeof editHandleSchema>;
 

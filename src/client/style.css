@@ -29,11 +29,20 @@
 }
 
 @layer base {
+	* {
+		@apply select-none;
+	}
+
+	html {
+		font-family: "Baloo 2", sans-serif;
+		font-optical-sizing: auto;
+		font-style: normal;
+	}
 	body {
 		@apply bg-neutral-700 sm:p-6;
 	}
 	#root {
-		@apply mx-auto max-w-xl h-dvh sm:max-h-[calc(100dvh-3rem)] bg-neutral-50 rounded-lg shadow-xl overflow-auto;
+		@apply mx-auto max-w-xl h-dvh sm:max-h-[calc(100dvh-3rem)] bg-neutral-50 rounded-md shadow-xl overflow-auto;
 		contain: layout;
 	}
 	/* ::view-transition-old(root) {
@@ -45,8 +54,5 @@
   * {
     scrollbar-width: thin;
     -webkit-scrollbar-width: thin;
-  }
-  *:not(input):not(textarea) {
-    @apply select-none;
   } */
 }

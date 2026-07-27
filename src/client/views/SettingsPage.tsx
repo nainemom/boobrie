@@ -78,7 +78,7 @@ export function SettingsPage() {
 		<main className="flex h-full flex-col">
 			<header className="flex shrink-0 items-center gap-3 border-b border-neutral-200 px-3 py-3">
 				<Link
-					href="/conversations"
+					href="/"
 					aria-label="Back to conversations"
 					className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100"
 				>
@@ -109,7 +109,7 @@ export function SettingsPage() {
 								</code>
 								<Button
 									variant="outline"
-									size="base"
+									size={8}
 									onClick={copyAddress}
 									className="shrink-0"
 								>
@@ -231,11 +231,7 @@ export function SettingsPage() {
 							Logging out removes this account's key from this device. You'll
 							need your 12 words to sign back in.
 						</p>
-						<Button
-							variant="error_ghost"
-							className="self-start"
-							onClick={() => logout()}
-						>
+						<Button size={10} className="self-start" onClick={() => logout()}>
 							Log out
 						</Button>
 					</Section>

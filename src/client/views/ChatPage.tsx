@@ -70,7 +70,7 @@ export function ChatPage() {
 		<main className="flex h-full flex-col">
 			<header className="flex shrink-0 items-center gap-3 border-b border-neutral-200 px-3 py-3">
 				<Link
-					href="/conversations"
+					href="/"
 					aria-label="Back to conversations"
 					className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100"
 				>

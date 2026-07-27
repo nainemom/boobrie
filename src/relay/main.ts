@@ -54,8 +54,6 @@ async function main() {
 	app.post('/auth/challenge', challengeHandler);
 	app.post('/auth/verify', verifyHandler);
 	app.get('/auth/me', getMeHandler, { middleware: [requireAuth] });
-	// Setting your handle is free; it only *resolves* publicly (GET /handles/:handle)
-	// while you keep the `handle` feature funded.
 	app.patch('/auth/me/handle', editHandleHandler, {
 		middleware: [requireAuth],
 	});
@@ -77,10 +75,8 @@ async function main() {
 	});
 	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
 	app.post('/random', randomMatchHandler, { middleware: [requireAuth] });
-	app.get('/handles/:handle', redirectUserHandler('/users/:address'), {
-		middleware: [requireAuth],
-	});
-	app.get('/users/:address', getUserHandler, { middleware: [requireAuth] });
+	app.get('/handles/:handle', redirectUserHandler('/users/:address'));
+	app.get('/users/:address', getUserHandler);
 
 	serve(app, { port: config.port, hostname: config.host });
 

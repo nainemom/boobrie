@@ -1,70 +1,76 @@
+import { LoaderIcon } from 'lucide-react';
 import type { ButtonHTMLAttributes, FC } from 'react';
-import { tv } from 'tailwind-variants';
+import { tv, type VariantProps } from 'tailwind-variants';
 
 export const button = tv({
-	base: 'inline-flex items-center justify-center gap-2 font-medium cursor-pointer disabled:opacity-40 disabled:pointer-events-none transition-colors outline-none border rounded-lg',
+	base: [
+		'inline-flex items-center justify-center gap-2 relative',
+		'uppercase font-semibold cursor-pointer',
+		'outline-none border',
+		'disabled:opacity-40 disabled:pointer-events-none',
+	],
 	variants: {
 		variant: {
 			primary:
-				'bg-primary border-primary hover:bg-primary-hover focus-visible:bg-primary-hover active:bg-primary text-on-primary',
-			success:
-				'bg-success border-success hover:bg-success/80 focus-visible:bg-success/80 active:bg-success text-on-primary',
-			error:
-				'bg-error border-error hover:bg-error/80 focus-visible:bg-error/80 active:bg-error text-on-error',
-			ghost:
-				'bg-transparent border-transparent hover:bg-surface-alt focus-visible:bg-surface-alt active:bg-transparent text-text-secondary',
-			error_ghost:
-				'bg-transparent border-transparent hover:bg-error/10 focus-visible:bg-error/10 active:bg-error/20 text-error',
-			primary_ghost:
-				'bg-transparent border-transparent hover:bg-primary/10 focus-visible:bg-primary/10 active:bg-primary/20 text-primary',
+				'bg-neutral-800 border-neutral-800 hover:bg-neutral-700 focus-visible:border-2 focus-visible:border-neutral-50 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-900 text-neutral-50',
 			outline:
-				'bg-transparent border-border hover:bg-surface-alt focus-visible:bg-surface-alt active:bg-transparent text-text-secondary',
+				'bg-neutral-100 border-neutral-200 hover:bg-neutral-600/5 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-600/10 text-neutral-800',
 		},
 		iconOnly: {
-			true: '',
+			true: 'shrink-0',
+			false: '',
+		},
+		loading: {
+			true: '[&>.contents]:text-transparent disabled:opacity-80',
 			false: '',
 		},
 		size: {
-			sm: 'h-6',
-			base: 'h-8',
-			md: 'h-10',
-			lg: 'h-14',
+			6: 'h-6 rounded-sm text-xs',
+			8: 'h-8 rounded-sm text-xs',
+			10: 'h-10 rounded-md text-sm',
+			12: 'h-12 rounded-md text-sm',
 		},
 	},
 	compoundVariants: [
-		{ iconOnly: true, size: 'sm', class: 'w-6' },
-		{ iconOnly: true, size: 'base', class: 'w-8' },
-		{ iconOnly: true, size: 'md', class: 'w-10' },
-		{ iconOnly: true, size: 'lg', class: 'w-14' },
-		{ iconOnly: false, size: 'sm', class: 'px-2 text-xs' },
-		{ iconOnly: false, size: 'base', class: 'px-2.5 text-sm' },
-		{ iconOnly: false, size: 'md', class: 'px-3 text-sm' },
-		{ iconOnly: false, size: 'lg', class: 'px-4 text-sm' },
+		{ iconOnly: true, size: 6, class: 'w-6' },
+		{ iconOnly: true, size: 8, class: 'w-8' },
+		{ iconOnly: true, size: 10, class: 'w-10' },
+		{ iconOnly: true, size: 12, class: 'w-12' },
+		{ iconOnly: false, size: 6, class: 'px-2 text-xs' },
+		{ iconOnly: false, size: 8, class: 'px-2.5 text-sm' },
+		{ iconOnly: false, size: 10, class: 'px-3 text-sm' },
+		{ iconOnly: false, size: 12, class: 'px-4 text-sm' },
 	],
 	defaultVariants: {
 		variant: 'primary',
 		iconOnly: false,
-		size: 'md',
+		size: 10,
 	},
 });
 
 export const Button: FC<
-	ButtonHTMLAttributes<HTMLButtonElement> & {
-		variant?:
-			| 'primary'
-			| 'success'
-			| 'error'
-			| 'ghost'
-			| 'primary_ghost'
-			| 'outline'
-			| 'error_ghost';
-		iconOnly?: boolean;
-		size?: 'sm' | 'base' | 'md' | 'lg';
-	}
-> = ({ variant, iconOnly, size, className, ...props }) => (
+	ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button>
+> = ({
+	className,
+	variant,
+	iconOnly,
+	disabled,
+	children,
+	loading,
+	size,
+	...props
+}) => (
 	<button
 		type="button"
 		{...props}
-		className={button({ variant, iconOnly, size, className })}
-	/>
+		disabled={disabled || loading}
+		className={button({ variant, iconOnly, loading, size, className })}
+	>
+		<span className="contents">{children}</span>
+		{loading && (
+			<div className="flex items-center justify-center absolute inset-0">
+				<LoaderIcon size={18} className="animate-spin" />
+			</div>
+		)}
+	</button>
 );

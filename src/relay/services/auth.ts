@@ -100,7 +100,7 @@ export const challengeHandler = defineHandler(async (event) => {
 });
 
 export const verifyHandler = defineHandler(async (event) => {
-	const { challengeToken, response } = await readValidatedBody(
+	const { challengeToken, response, handle } = await readValidatedBody(
 		event,
 		verifySchema,
 	);
@@ -132,10 +132,27 @@ export const verifyHandler = defineHandler(async (event) => {
 		throw new HTTPError({ status: 401, message: 'wrong response' });
 	}
 
+	if (handle) {
+		const existing = await db.user.findUnique({
+			where: { handle },
+			select: { address: true },
+		});
+		if (existing && existing.address !== claims.address) {
+			throw new HTTPError({ status: 409, message: 'handle already taken' });
+		}
+	}
+
 	const inserted = await db.user.createMany({
-		data: [{ address: claims.address }],
+		data: [{ address: claims.address, handle: handle || null }],
 		skipDuplicates: true,
 	});
+
+	if (inserted.count === 0 && handle) {
+		await db.user.update({
+			where: { address: claims.address },
+			data: { handle },
+		});
+	}
 
 	return {
 		token: signToken({ address: claims.address }, config.sessionTtlMs),

@@ -3,7 +3,7 @@ import { tv, type VariantProps } from 'tailwind-variants';
 import { avatar } from '../services/avatar';
 
 const image = tv({
-	base: 'rounded-lg bg-neutral-100 &>svg]:block [&>svg]:w-full [&>svg]:h-auto border',
+	base: 'flex items-center justify-center [&>svg]:block [&>svg]:w-full [&>svg]:h-auto',
 });
 export const Avatar: FC<
 	{

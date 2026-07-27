@@ -3,7 +3,7 @@ import { tv } from 'tailwind-variants';
 import { signature } from '../services/signature';
 
 const image = tv({
-	base: '[&>svg]:block [&>svg]:w-full [&>svg]:h-auto',
+	base: 'flex items-center justify-center [&>svg]:block [&>svg]:w-full [&>svg]:h-auto',
 });
 
 export const Signature: FC<{

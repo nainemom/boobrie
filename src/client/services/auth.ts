@@ -7,6 +7,8 @@ import { mnemonicToKeyPair } from '@/shared/mnemonic';
 import type { ChallengeResponse, VerifyResponse } from '@/shared/protocol';
 import { db } from '../db';
 import { createExternalStore } from '../utils/react';
+import { unsubscribeFromPush } from './push';
+import { editPushSubscription } from './relay';
 
 export { generateIdentity as generate } from '@/shared/auth';
 
@@ -17,7 +19,7 @@ const api = ofetch.create({
 	headers: { 'content-type': 'application/json' },
 	retry: 3,
 	retryDelay: 3000,
-	retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
+	retryStatusCodes: [408, 425, 429, 500, 502, 503, 504],
 });
 
 const KEY_ID = 'keyPair';
@@ -61,6 +63,7 @@ export const useIdentity = () =>
 async function authenticate(
 	keyPair: CryptoKeyPair,
 	mnemonic?: string,
+	handle?: string,
 ): Promise<Identity> {
 	const identity: Identity = {
 		keyPair,
@@ -77,7 +80,7 @@ async function authenticate(
 	const nonce = await openSeal(identity.keyPair.privateKey, box);
 	const authResult = await api<VerifyResponse>('/auth/verify', {
 		method: 'POST',
-		body: { challengeToken, response: bytesToBase58(nonce) },
+		body: { challengeToken, response: bytesToBase58(nonce), handle },
 	});
 	const session = {
 		token: authResult.token,
@@ -91,16 +94,28 @@ async function authenticate(
 
 export interface LoginParams {
 	mnemonic: string;
+	handle?: string;
 }
 
-export async function login({ mnemonic }: LoginParams): Promise<Identity> {
+export async function login({
+	mnemonic,
+	handle,
+}: LoginParams): Promise<Identity> {
 	const keyPair = await mnemonicToKeyPair(mnemonic);
-	const identity = await authenticate(keyPair, mnemonic);
+	const identity = await authenticate(keyPair, mnemonic, handle);
 	await saveKeyPair(keyPair);
 	return identity;
 }
 
 export async function logout(): Promise<void> {
+	// Unsubscribe while the session is still live — the relay call needs the
+	// current token, and it's gone the moment `set` below clears it.
+	try {
+		await unsubscribeFromPush();
+		await editPushSubscription({ pushSubscription: null });
+	} catch (error) {
+		console.error('Failed to remove push subscription:', error);
+	}
 	set({ identity: null, session: null });
 	await deleteKeyPair();
 }

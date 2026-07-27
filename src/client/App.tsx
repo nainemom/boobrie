@@ -13,15 +13,14 @@ export function App() {
 			<SWRConfig>
 				<Router>
 					<Switch>
-						<Route path="/conversations" component={ConversationsPage} />
+						<Route path="/" component={ConversationsPage} />
 						<Route path="/settings" component={SettingsPage} />
 						<Route path="/i/:address" component={ChatPage} />
 						<Route path="/@:handle" component={ChatRedirectPage} />
 						<Route path="/">
-							<Redirect to="/conversations" />
+							<Redirect to="/" />
 						</Route>
 					</Switch>
-					{/* Global identity gate — forces itself open until one is picked. */}
 					<AuthModal />
 				</Router>
 			</SWRConfig>
