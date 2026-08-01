@@ -1,8 +1,10 @@
+import { ChevronLeftIcon, XIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 import { tv } from 'tailwind-variants';
+import { Button } from './Button';
 
 const panel = tv({
-	base: 'max-h-[calc(100%-2rem)] w-full max-w-sm overflow-y-auto rounded-md bg-neutral-50 text-neutral-800 shadow-xl',
+	base: 'max-h-[calc(100%-2rem)] w-full max-w-sm overflow-y-auto rounded-sm p-3 bg-neutral-50 text-neutral-800',
 });
 
 /**
@@ -10,11 +12,67 @@ const panel = tv({
  * close control of its own — whoever mounts it decides when it's shown, so it
  * can serve both dismissible dialogs and a forced gate that stays put.
  */
-export const Modal: FC<{ children: ReactNode; className?: string }> = ({
+export const Modal: FC<{
+	children: ReactNode;
+	title?: ReactNode;
+	subtitle?: ReactNode;
+	closeButton?: boolean;
+	onClose?: () => void;
+	backButton?: boolean;
+	backDisabled?: boolean;
+	onBack?: () => void;
+	className?: string;
+}> = ({
+	title: titleContent,
+	subtitle: subtitleContent,
+	closeButton,
+	backButton,
+	backDisabled,
+	onBack,
+	onClose,
 	children,
 	className,
 }) => (
-	<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-		<div className={panel({ class: className })}>{children}</div>
+	<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
+		<div className={panel({ class: className })}>
+			{(titleContent || subtitleContent || closeButton || backButton) && (
+				<div className="mb-3 flex gap-3">
+					{backButton && (
+						<Button
+							onClick={onBack}
+							disabled={backDisabled}
+							iconOnly
+							className="shrink-0"
+							size={10}
+							variant="transparent"
+						>
+							<ChevronLeftIcon />
+						</Button>
+					)}
+					<div className="grow pt-1.5">
+						{titleContent && (
+							<h3 className="text-2xl font-bold flex items-center gap-1">
+								{titleContent}
+							</h3>
+						)}
+						{subtitleContent && (
+							<p className="text-sm text-neutral-500">{subtitleContent}</p>
+						)}
+					</div>
+					{closeButton && (
+						<Button
+							onClick={onClose}
+							iconOnly
+							className="shrink-0"
+							size={10}
+							variant="transparent"
+						>
+							<XIcon />
+						</Button>
+					)}
+				</div>
+			)}
+			{children}
+		</div>
 	</div>
 );

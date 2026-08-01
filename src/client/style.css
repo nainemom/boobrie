@@ -1,31 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-	/* Primary (Indigo #4338ca) */
-	--color-primary: #4338ca;
-	--color-primary-hover: #3730a3;
-	--color-primary-active: #312e81;
-	--color-on-primary: #ffffff;
-
-	/* Surface / Background */
-	--color-bg: #cbd5e1;
-	--color-surface: #ffffff;
-	--color-surface-alt: #f8fafc;
-
-	/* Text */
-	--color-text: #0f172a;
-	--color-text-secondary: #475569;
-	--color-text-muted: #94a3b8;
-
-	/* Border */
-	--color-border: #e2e8f0;
-	--color-border-light: #f1f5f9;
-
-	/* Feedback */
-	--color-success: #059669;
-	--color-error: #dc2626;
-	--color-error-light: #fef2f2;
-	--color-on-error: #ffffff;
+	--color-primary: #171717;
+	--color-primary-hover: #262626;
+	--color-primary-active: #0a0a0a;
+	--color-on-primary: #fafafa;
 }
 
 @layer base {
@@ -42,7 +21,7 @@
 		@apply bg-neutral-700 sm:p-6;
 	}
 	#root {
-		@apply mx-auto max-w-xl h-dvh sm:max-h-[calc(100dvh-3rem)] bg-neutral-50 rounded-md shadow-xl overflow-auto;
+		@apply mx-auto max-w-xl h-dvh sm:max-h-[calc(100dvh-3rem)] bg-neutral-50 sm:rounded-sm shadow-xl overflow-auto;
 		contain: layout;
 	}
 	/* ::view-transition-old(root) {

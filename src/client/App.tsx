@@ -16,13 +16,13 @@ export function App() {
 						<Route path="/" component={ConversationsPage} />
 						<Route path="/settings" component={SettingsPage} />
 						<Route path="/i/:address" component={ChatPage} />
-						<Route path="/@:handle" component={ChatRedirectPage} />
+						<Route path="/:handle" component={ChatRedirectPage} />
 						<Route path="/">
 							<Redirect to="/" />
 						</Route>
 					</Switch>
-					<AuthModal />
 				</Router>
+				<AuthModal />
 			</SWRConfig>
 		</Suspense>
 	);

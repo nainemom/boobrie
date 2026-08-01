@@ -12,15 +12,11 @@
  * messages, and {@link file://./sync.ts} bridges them to the relay.
  */
 
-import { useSyncExternalStore } from 'react';
 import type { Identity } from '@/shared/auth';
 import type { MeResponse } from '@/shared/protocol';
-import {
-	getIdentity,
-	getSession,
-	type RelaySession,
-	subscribe as subscribeAuth,
-} from './auth';
+import { errorMessage } from '../utils/errors';
+import { createExternalState, useExternalState } from '../utils/externalState';
+import { authState, type RelaySession } from './auth';
 import {
 	existingPushSubscription,
 	notificationPermission,
@@ -63,24 +59,10 @@ const initialState: State = {
 	pushError: null,
 };
 
-let state: State = initialState;
-const listeners = new Set<() => void>();
-
-function set(patch: Partial<State>): void {
-	state = { ...state, ...patch };
-	for (const listener of listeners) listener();
-}
+const userState = createExternalState<State>(initialState);
 
 /** The reactive user slice: identity, profile, membership, and push state. */
-export function useUser(): State {
-	return useSyncExternalStore(
-		(listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
-		},
-		() => state,
-	);
-}
+export const useUser = () => useExternalState(userState);
 
 // Once a session is up, reflect whether this device already has a push
 // subscription — and if so, reassert it with the relay (a fresh session may
@@ -90,19 +72,19 @@ export function useUser(): State {
 function reassertPushSubscription(): void {
 	void existingPushSubscription().then((subscription) => {
 		if (!subscription) {
-			set({ pushStatus: 'idle' });
+			userState.patch({ pushStatus: 'idle' });
 			return;
 		}
 		editPushSubscription({ pushSubscription: subscription })
-			.then(() => set({ pushStatus: 'subscribed' }))
+			.then(() => userState.patch({ pushStatus: 'subscribed' }))
 			.catch((error) => {
 				// The browser still holds its subscription, but the relay didn't
 				// record it — reflect that instead of claiming we're subscribed when
 				// the relay has nothing on file to push to.
 				console.error('Failed to reassert push subscription:', error);
-				set({
+				userState.patch({
 					pushStatus: 'error',
-					pushError: error instanceof Error ? error.message : String(error),
+					pushError: errorMessage(error),
 				});
 			});
 	});
@@ -115,9 +97,14 @@ async function connect(
 	identity: Identity,
 	session: RelaySession,
 ): Promise<void> {
-	set({ ...initialState, permission: state.permission, identity, session });
+	userState.set({
+		...initialState,
+		permission: userState.state.permission,
+		identity,
+		session,
+	});
 	try {
-		set({ me: await getMe() });
+		userState.patch({ me: await getMe() });
 	} catch (error) {
 		console.error('Failed to fetch user profile:', error);
 	}
@@ -126,7 +113,7 @@ async function connect(
 
 /** Tear the session down and return to a clean logged-out state. */
 function disconnect(): void {
-	set({ ...initialState, permission: state.permission });
+	userState.set({ ...initialState, permission: userState.state.permission });
 }
 
 // The token we last connected for — so a new session reconnects but repeat
@@ -134,8 +121,7 @@ function disconnect(): void {
 let connectedToken: string | null = null;
 
 function syncFromAuth(): void {
-	const identity = getIdentity();
-	const session = getSession();
+	const { identity, session } = authState.state;
 	if (identity && session) {
 		if (session.token === connectedToken) return;
 		connectedToken = session.token;
@@ -146,7 +132,7 @@ function syncFromAuth(): void {
 	}
 }
 
-subscribeAuth(syncFromAuth);
+authState.subscribe(syncFromAuth);
 // Pick up a session that auto-login may have restored before this module ran.
 syncFromAuth();
 
@@ -154,54 +140,49 @@ syncFromAuth();
 
 export async function changeHandle(handle: string): Promise<void> {
 	const res = await updateHandle({ handle });
-	set({ me: state.me ? { ...state.me, handle: res.handle } : state.me });
+	const { me } = userState.state;
+	userState.patch({ me: me ? { ...me, handle: res.handle } : me });
 }
 
 export async function changeDiscoverable(discoverable: boolean): Promise<void> {
 	const res = await setDiscoverable({ discoverable });
-	set({
-		me: state.me ? { ...state.me, discoverable: res.discoverable } : state.me,
-	});
+	const { me } = userState.state;
+	userState.patch({ me: me ? { ...me, discoverable: res.discoverable } : me });
 }
 
 /** Ask the browser for notification permission. Call from a user gesture (a
  * click handler) — browsers ignore the prompt otherwise. */
 export async function grantPermission(): Promise<void> {
-	set({ pushError: null });
+	userState.patch({ pushError: null });
 	try {
-		set({ permission: await requestNotificationPermission() });
+		userState.patch({ permission: await requestNotificationPermission() });
 	} catch (error) {
-		set({ pushError: error instanceof Error ? error.message : String(error) });
+		userState.patch({ pushError: errorMessage(error) });
 	}
 }
 
 export async function enablePush(): Promise<void> {
-	const vapidPublicKey = state.me?.vapidPublicKey;
-	if (!vapidPublicKey || !state.session) return;
-	set({ pushError: null, pushStatus: 'subscribing' });
+	const { me, session } = userState.state;
+	const vapidPublicKey = me?.vapidPublicKey;
+	if (!vapidPublicKey || !session) return;
+	userState.patch({ pushError: null, pushStatus: 'subscribing' });
 	try {
 		const subscription = await subscribeToPush(vapidPublicKey);
 		await editPushSubscription({ pushSubscription: subscription });
-		set({ pushStatus: 'subscribed' });
+		userState.patch({ pushStatus: 'subscribed' });
 	} catch (error) {
-		set({
-			pushError: error instanceof Error ? error.message : String(error),
-			pushStatus: 'error',
-		});
+		userState.patch({ pushError: errorMessage(error), pushStatus: 'error' });
 	}
 }
 
 export async function disablePush(): Promise<void> {
-	if (!state.session) return;
-	set({ pushError: null, pushStatus: 'unsubscribing' });
+	if (!userState.state.session) return;
+	userState.patch({ pushError: null, pushStatus: 'unsubscribing' });
 	try {
 		await unsubscribeFromPush();
 		await editPushSubscription({ pushSubscription: null });
-		set({ pushStatus: 'idle' });
+		userState.patch({ pushStatus: 'idle' });
 	} catch (error) {
-		set({
-			pushError: error instanceof Error ? error.message : String(error),
-			pushStatus: 'error',
-		});
+		userState.patch({ pushError: errorMessage(error), pushStatus: 'error' });
 	}
 }

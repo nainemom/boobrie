@@ -1,19 +1,32 @@
-import { useEffect } from 'react';
-import { useLocation, useParams } from 'wouter';
-import { useToken } from '../services/auth';
+import useSWR from 'swr';
+import { Redirect, useParams } from 'wouter';
+import { Page } from '../components/Page';
+import { CenterSpinner } from '../components/Spinner';
 import { getUserByHandle } from '../services/relay';
 
 export function ChatRedirectPage() {
 	const { handle } = useParams<{ handle: string }>();
-	const [, setLocation] = useLocation();
-	const token = useToken();
+	const userAddress = useSWR(
+		`handle-${handle}`,
+		async () => {
+			const ret = await getUserByHandle(handle);
+			return ret.address;
+		},
+		{
+			revalidateOnFocus: false,
+			revalidateOnReconnect: false,
+			revalidateIfStale: false,
+			keepPreviousData: false,
+		},
+	);
 
-	useEffect(() => {
-		if (!token) return;
-		getUserByHandle(handle).then((res) => {
-			setLocation(`/i/${res.address}`);
-		});
-	}, [token, handle, setLocation]);
+	if (userAddress.data) {
+		return <Redirect to={`/i/${userAddress.data}`} />;
+	}
 
-	return <main>Redirecting...</main>;
+	return (
+		<Page>
+			<CenterSpinner />
+		</Page>
+	);
 }

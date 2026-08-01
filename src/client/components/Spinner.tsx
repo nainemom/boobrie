@@ -11,3 +11,14 @@ export const Spinner: FC<{ size?: 'sm' | 'lg'; className?: string }> = ({
 	size,
 	className,
 }) => <span className={spinner({ size, class: className })} />;
+
+/** A `Spinner` centered to fill its parent — the common "loading" placeholder
+ * for a whole page or panel. */
+export const CenterSpinner: FC<{ size?: 'sm' | 'lg'; className?: string }> = ({
+	size = 'lg',
+	className = 'text-neutral-300',
+}) => (
+	<div className="flex h-full items-center justify-center">
+		<Spinner size={size} className={className} />
+	</div>
+);

@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { useLocation } from 'wouter';
+import { sleep } from '@/shared/utils';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { FormActions } from '../components/FormActions';
+import { FormField } from '../components/FormField';
 import { Modal } from '../components/Modal';
 import { getRandomMatch } from '../services/relay';
+import { truncateAddress } from '../utils/address';
+import { errorMessage } from '../utils/errors';
 
-/** A deliberate suspense beat before each relay ask, so a match never pops in
- * instantly. Doubles as the poll interval while waiting for someone to appear. */
-const SEARCH_DELAY_MS = 2000;
 /** How often the searching avatar swaps to a new random face. */
 const SHUFFLE_MS = 100;
 
@@ -15,156 +18,114 @@ const randomSeed = () => Math.random().toString(36).slice(2);
 
 export function RandomChatModal({ onClose }: { onClose: () => void }) {
 	const [, navigate] = useLocation();
-	// `undefined` while searching, otherwise the matched candidate's address.
-	const [match, setMatch] = useState<string | undefined>(undefined);
-	const [error, setError] = useState<string | null>(null);
+	const skipped = useRef<string[]>([]);
+	// Bumped on every new search so it's a fresh, un-cached key — a clean
+	// "searching" state with no stale data/error, and no need to invalidate a
+	// still-pending previous attempt.
+	const [attempt, setAttempt] = useState(0);
 	// A throwaway seed that changes fast while searching, for the shuffle effect.
 	const [shuffleSeed, setShuffleSeed] = useState(randomSeed);
 
-	const skipped = useRef<string[]>([]);
-	// Bumped on every new search so a stale (delayed) response can't land late.
-	const searchId = useRef(0);
-	const delayTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-		undefined,
+	const search = useSWR(
+		`random-match-${attempt}`,
+		async () => {
+			// Wait out a deliberate suspense beat, so a match never pops in
+			// instantly, then ask the relay — and go around again if no one's
+			// online yet.
+			for (;;) {
+				await sleep(2000);
+				const res = await getRandomMatch({ exclude: skipped.current });
+				if (res.address !== null) return res.address;
+			}
+		},
+		{
+			revalidateOnFocus: false,
+			revalidateOnReconnect: false,
+			revalidateIfStale: false,
+		},
 	);
 
-	const searching = match === undefined && error === null;
-
-	const find = useCallback(() => {
-		const id = ++searchId.current;
-		clearTimeout(delayTimer.current);
-		setError(null);
-		setMatch(undefined);
-
-		// One poll: wait out the suspense beat, ask the relay, and either settle on
-		// a match or — if no one is online yet — go around again.
-		const attempt = () => {
-			delayTimer.current = setTimeout(() => {
-				getRandomMatch({ exclude: skipped.current })
-					.then((res) => {
-						if (searchId.current !== id) return;
-						if (res.address === null) attempt();
-						else setMatch(res.address);
-					})
-					.catch((err) => {
-						if (searchId.current !== id) return;
-						setError(err instanceof Error ? err.message : String(err));
-					});
-			}, SEARCH_DELAY_MS);
-		};
-		attempt();
-	}, []);
-
-	// Search as soon as the modal opens; invalidate any pending work on unmount.
-	useEffect(() => {
-		find();
-		return () => {
-			searchId.current++;
-			clearTimeout(delayTimer.current);
-		};
-	}, [find]);
+	const find = () => setAttempt((a) => a + 1);
 
 	// Spin the avatar while searching; leave it be once a result is in.
 	useEffect(() => {
-		if (!searching) return;
+		if (!search.isLoading) return;
 		const interval = setInterval(
 			() => setShuffleSeed(randomSeed()),
 			SHUFFLE_MS,
 		);
 		return () => clearInterval(interval);
-	}, [searching]);
+	}, [search.isLoading]);
 
 	// Remember this candidate so the relay won't offer them again, then pull the next.
 	const skip = () => {
-		if (match) skipped.current.push(match);
+		if (search.data) skipped.current.push(search.data);
 		find();
 	};
 
 	const chat = () => {
-		if (!match) return;
-		navigate(`/i/${match}`);
+		if (!search.data) return;
+		navigate(`/i/${search.data}`);
 		onClose();
 	};
 
-	return (
-		<Modal>
-			<div className="flex flex-col gap-4">
-				<div className="flex items-start justify-between gap-3">
-					<h3 className="text-2xl font-bold">Talk to a stranger</h3>
-					<Button
-						iconOnly
-						variant="ghost"
-						size="base"
-						onClick={onClose}
-						aria-label="Close"
-					>
-						<CloseIcon />
-					</Button>
-				</div>
+	const errorText = search.error ? errorMessage(search.error) : null;
 
-				{error ? (
+	return (
+		<Modal title="Talk to a stranger" closeButton onClose={onClose}>
+			<div className="flex flex-col gap-4">
+				{errorText ? (
 					<>
-						<p role="alert" className="text-sm text-red-700">
-							{error}
-						</p>
-						<div className="mt-2 flex w-full gap-3">
-							<Button variant="outline" className="grow" onClick={onClose}>
+						<FormField error={errorText} />
+						<FormActions>
+							<Button variant="outline" onClick={onClose}>
 								Cancel
 							</Button>
-							<Button className="grow" onClick={find}>
+							<Button className="col-span-2" onClick={find}>
 								Try again
 							</Button>
-						</div>
+						</FormActions>
 					</>
-				) : match === undefined ? (
+				) : search.data === undefined ? (
 					<>
 						<div className="flex flex-col items-center gap-3 py-2">
 							<Avatar
 								address={shuffleSeed}
-								className="size-20 animate-pulse motion-reduce:animate-none"
+								className="size-32 motion-reduce:animate-none"
 							/>
-							<span className="text-sm text-neutral-500">
+							<span className="text-base text-neutral-500">
 								Finding someone online…
 							</span>
 						</div>
-						<Button variant="outline" className="w-full" onClick={onClose}>
-							Cancel
-						</Button>
+						<FormActions>
+							<Button
+								variant="outline"
+								className="col-span-3"
+								onClick={onClose}
+							>
+								Cancel
+							</Button>
+						</FormActions>
 					</>
 				) : (
 					<>
 						<div className="flex flex-col items-center gap-3 py-2">
-							<Avatar address={match} className="size-20" />
+							<Avatar address={search.data} className="size-20" />
 							<span className="w-full truncate text-center text-sm text-neutral-500">
-								{match}
+								{truncateAddress(search.data)}
 							</span>
 						</div>
-						<div className="mt-2 flex w-full gap-3">
-							<Button variant="outline" className="grow" onClick={skip}>
+						<FormActions>
+							<Button variant="outline" onClick={skip}>
 								Skip
 							</Button>
-							<Button className="grow" onClick={chat}>
+							<Button className="col-span-2" onClick={chat}>
 								Chat
 							</Button>
-						</div>
+						</FormActions>
 					</>
 				)}
 			</div>
 		</Modal>
 	);
 }
-
-const CloseIcon = () => (
-	<svg
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		strokeWidth={2.5}
-		strokeLinecap="round"
-		strokeLinejoin="round"
-		className="size-4"
-		aria-hidden="true"
-	>
-		<path d="M18 6 6 18M6 6l12 12" />
-	</svg>
-);

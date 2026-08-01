@@ -7,28 +7,37 @@ export const button = tv({
 		'inline-flex items-center justify-center gap-2 relative',
 		'uppercase font-semibold cursor-pointer',
 		'outline-none border',
-		'disabled:opacity-40 disabled:pointer-events-none',
+		'disabled:pointer-events-none',
 	],
 	variants: {
 		variant: {
-			primary:
-				'bg-neutral-800 border-neutral-800 hover:bg-neutral-700 focus-visible:border-2 focus-visible:border-neutral-50 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-900 text-neutral-50',
-			outline:
-				'bg-neutral-100 border-neutral-200 hover:bg-neutral-600/5 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-600/10 text-neutral-800',
+			primary: [
+				'bg-primary border-primary hover:bg-primary-hover focus-visible:border-2 focus-visible:border-neutral-50 focus-visible:ring focus-visible:ring-primary active:bg-primary-active text-on-primary',
+				'disabled:bg-neutral-500 disabled:border-transparent',
+			],
+			outline: [
+				'bg-neutral-100 border-neutral-200 hover:border-neutral-300 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-600/10 text-neutral-800',
+				'disabled:text-neutral-300',
+			],
+			transparent: [
+				'bg-neutral-50 border-neutral-50 hover:bg-neutral-100 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-200 text-neutral-800',
+				'disabled:text-neutral-300',
+			],
 		},
 		iconOnly: {
 			true: 'shrink-0',
 			false: '',
 		},
 		loading: {
-			true: '[&>.contents]:text-transparent disabled:opacity-80',
+			true: '[&>.contents]:text-transparent',
 			false: '',
 		},
 		size: {
 			6: 'h-6 rounded-sm text-xs',
 			8: 'h-8 rounded-sm text-xs',
-			10: 'h-10 rounded-md text-sm',
-			12: 'h-12 rounded-md text-sm',
+			10: 'h-10 rounded-sm text-sm',
+			12: 'h-12 rounded-sm text-sm',
+			14: 'h-14 rounded-sm text-sm',
 		},
 	},
 	compoundVariants: [
@@ -36,10 +45,12 @@ export const button = tv({
 		{ iconOnly: true, size: 8, class: 'w-8' },
 		{ iconOnly: true, size: 10, class: 'w-10' },
 		{ iconOnly: true, size: 12, class: 'w-12' },
-		{ iconOnly: false, size: 6, class: 'px-2 text-xs' },
-		{ iconOnly: false, size: 8, class: 'px-2.5 text-sm' },
-		{ iconOnly: false, size: 10, class: 'px-3 text-sm' },
-		{ iconOnly: false, size: 12, class: 'px-4 text-sm' },
+		{ iconOnly: true, size: 14, class: 'w-14' },
+		{ iconOnly: false, size: 6, class: 'px-2' },
+		{ iconOnly: false, size: 8, class: 'px-2.5' },
+		{ iconOnly: false, size: 10, class: 'px-3' },
+		{ iconOnly: false, size: 12, class: 'px-4' },
+		{ iconOnly: false, size: 14, class: 'px-4' },
 	],
 	defaultVariants: {
 		variant: 'primary',

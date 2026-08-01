@@ -1,10 +1,16 @@
-import { type FC, type FormEvent, type ReactNode, useState } from 'react';
+import { ChevronLeftIcon } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
+import useSWRMutation from 'swr/mutation';
 import { Link } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { Navbar } from '../components/Navbar';
+import { Page } from '../components/Page';
+import { Section } from '../components/Section';
+import { Signature } from '../components/Signature';
 import { Spinner } from '../components/Spinner';
+import { Toggle } from '../components/Toggle';
 import { logout } from '../services/auth';
-import { signature } from '../services/signature';
 import {
 	changeDiscoverable,
 	changeHandle,
@@ -13,6 +19,7 @@ import {
 	grantPermission,
 	useUser,
 } from '../services/user';
+import { errorMessage } from '../utils/errors';
 
 const PERMISSION_BADGE: Record<string, string> = {
 	granted: 'bg-green-100 text-green-700',
@@ -25,12 +32,16 @@ export function SettingsPage() {
 	const user = useUser();
 
 	const [handleInput, setHandleInput] = useState(user.me?.handle ?? '');
-	const [handleError, setHandleError] = useState<string | null>(null);
 	const [handleSuccess, setHandleSuccess] = useState(false);
 	const [copied, setCopied] = useState(false);
-	const [savingDiscoverable, setSavingDiscoverable] = useState(false);
-	const [discoverableError, setDiscoverableError] = useState<string | null>(
-		null,
+
+	const handleMutation = useSWRMutation(
+		'settings/handle',
+		(_key: string, { arg }: { arg: string }) => changeHandle(arg),
+	);
+	const discoverableMutation = useSWRMutation(
+		'settings/discoverable',
+		(_key: string, { arg }: { arg: boolean }) => changeDiscoverable(arg),
 	);
 
 	// Nothing to show without an identity — the gate modal is covering us anyway.
@@ -39,15 +50,15 @@ export function SettingsPage() {
 	const { address } = user.identity;
 	const profile = user.me;
 
-	const submitHandle = (event: FormEvent) => {
+	const submitHandle = async (event: FormEvent) => {
 		event.preventDefault();
-		setHandleError(null);
 		setHandleSuccess(false);
-		changeHandle(handleInput)
-			.then(() => setHandleSuccess(true))
-			.catch((error) =>
-				setHandleError(error instanceof Error ? error.message : String(error)),
-			);
+		try {
+			await handleMutation.trigger(handleInput);
+			setHandleSuccess(true);
+		} catch {
+			// error is already reflected in handleMutation.error
+		}
 	};
 
 	const copyAddress = () => {
@@ -59,15 +70,9 @@ export function SettingsPage() {
 
 	const toggleDiscoverable = () => {
 		if (!profile) return;
-		setDiscoverableError(null);
-		setSavingDiscoverable(true);
-		changeDiscoverable(!profile.discoverable)
-			.catch((error) =>
-				setDiscoverableError(
-					error instanceof Error ? error.message : String(error),
-				),
-			)
-			.finally(() => setSavingDiscoverable(false));
+		void discoverableMutation.trigger(!profile.discoverable, {
+			throwOnError: false,
+		});
 	};
 
 	const subscribed = user.pushStatus === 'subscribed';
@@ -75,29 +80,28 @@ export function SettingsPage() {
 		user.pushStatus === 'subscribing' || user.pushStatus === 'unsubscribing';
 
 	return (
-		<main className="flex h-full flex-col">
-			<header className="flex shrink-0 items-center gap-3 border-b border-neutral-200 px-3 py-3">
-				<Link
-					href="/"
-					aria-label="Back to conversations"
-					className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100"
-				>
-					<ChevronLeftIcon />
-				</Link>
-				<h1 className="text-xl font-bold text-neutral-800">Settings</h1>
-			</header>
+		<Page>
+			<Navbar
+				start={
+					<Link
+						href="/"
+						aria-label="Back to conversations"
+						className="contents"
+					>
+						<Button size={12} iconOnly variant="transparent">
+							<ChevronLeftIcon />
+						</Button>
+					</Link>
+				}
+				middle={<h1 className="text-xl font-bold">Settings</h1>}
+			/>
 
-			<div className="flex-1 overflow-y-auto">
+			<div className="flex-1 overflow-y-auto pt-20">
 				<div className="flex flex-col gap-5 p-5">
 					<Section title="Your identity">
 						<div className="flex flex-col items-center gap-4">
 							<Avatar address={address} className="size-40" />
-							{/* Signature strokes in currentColor; let it fill the box. */}
-							<div
-								className="w-full max-w-60 text-neutral-700 [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: self-generated SVG, no user-controlled markup
-								dangerouslySetInnerHTML={{ __html: signature(address) }}
-							/>
+							<Signature address={address} className="w-full max-w-60" />
 						</div>
 						<div className="flex flex-col gap-2">
 							<span className="text-xs font-medium text-neutral-500">
@@ -132,6 +136,7 @@ export function SettingsPage() {
 								<Button
 									type="submit"
 									className="shrink-0"
+									loading={handleMutation.isMutating}
 									disabled={handleInput.trim() === ''}
 								>
 									Save
@@ -140,9 +145,9 @@ export function SettingsPage() {
 							{handleSuccess ? (
 								<p className="text-sm text-green-700">Handle updated.</p>
 							) : null}
-							{handleError ? (
+							{handleMutation.error ? (
 								<p role="alert" className="text-sm text-red-700">
-									{handleError}
+									{errorMessage(handleMutation.error)}
 								</p>
 							) : null}
 						</form>
@@ -208,14 +213,14 @@ export function SettingsPage() {
 									</div>
 									<Toggle
 										checked={profile.discoverable}
-										disabled={savingDiscoverable}
+										disabled={discoverableMutation.isMutating}
 										onChange={toggleDiscoverable}
 										label="Discoverable in random chat"
 									/>
 								</div>
-								{discoverableError ? (
+								{discoverableMutation.error ? (
 									<p role="alert" className="text-sm text-red-700">
-										{discoverableError}
+										{errorMessage(discoverableMutation.error)}
 									</p>
 								) : null}
 							</>
@@ -237,58 +242,6 @@ export function SettingsPage() {
 					</Section>
 				</div>
 			</div>
-		</main>
+		</Page>
 	);
 }
-
-const Section: FC<{ title: string; children: ReactNode }> = ({
-	title,
-	children,
-}) => (
-	<section className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-white p-5">
-		<h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-			{title}
-		</h2>
-		{children}
-	</section>
-);
-
-const Toggle: FC<{
-	checked: boolean;
-	onChange: () => void;
-	label: string;
-	disabled?: boolean;
-}> = ({ checked, onChange, label, disabled }) => (
-	<button
-		type="button"
-		role="switch"
-		aria-checked={checked}
-		aria-label={label}
-		disabled={disabled}
-		onClick={onChange}
-		className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-neutral-500 disabled:pointer-events-none disabled:opacity-50 ${
-			checked ? 'bg-primary' : 'bg-neutral-300'
-		}`}
-	>
-		<span
-			className={`inline-block size-5 rounded-full bg-white shadow transition-transform ${
-				checked ? 'translate-x-5' : 'translate-x-0.5'
-			}`}
-		/>
-	</button>
-);
-
-const ChevronLeftIcon = () => (
-	<svg
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		strokeWidth={2.5}
-		strokeLinecap="round"
-		strokeLinejoin="round"
-		className="size-5"
-		aria-hidden="true"
-	>
-		<path d="m15 18-6-6 6-6" />
-	</svg>
-);

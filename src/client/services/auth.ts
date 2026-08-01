@@ -1,16 +1,40 @@
 import { ofetch } from 'ofetch';
-import { useSyncExternalStore } from 'react';
+import { db } from '@/client/db';
+import { unsubscribeFromPush } from '@/client/services/push';
+import { editPushSubscription } from '@/client/services/relay';
+import {
+	createExternalState,
+	useExternalState,
+} from '@/client/utils/externalState';
 import { addressOf, type Identity } from '@/shared/auth';
 import { openSeal } from '@/shared/crypto';
 import { bytesToBase58 } from '@/shared/encoding';
 import { mnemonicToKeyPair } from '@/shared/mnemonic';
 import type { ChallengeResponse, VerifyResponse } from '@/shared/protocol';
-import { db } from '../db';
-import { createExternalStore } from '../utils/react';
-import { unsubscribeFromPush } from './push';
-import { editPushSubscription } from './relay';
 
 export { generateIdentity as generate } from '@/shared/auth';
+
+// --- reactive session state -------------------------------------------
+
+export interface RelaySession {
+	token: string;
+	expiresAt: number;
+	address: string;
+}
+
+interface AuthState {
+	identity: Identity | null;
+	session: RelaySession | null;
+}
+
+export const authState = createExternalState<AuthState>({
+	identity: null,
+	session: null,
+});
+
+export const useAuth = () => useExternalState(authState);
+
+// --- relay handshake ------------------------------------------------------
 
 const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
 
@@ -31,34 +55,6 @@ const loadKeyPair = (): Promise<CryptoKeyPair | undefined> =>
 	db.auth.get(KEY_ID);
 
 const deleteKeyPair = (): Promise<void> => db.auth.delete(KEY_ID);
-
-/** A proven session: the token to present to the relay, and when it expires. */
-export interface RelaySession {
-	token: string;
-	expiresAt: number;
-	address: string;
-}
-
-interface AuthState {
-	identity: Identity | null;
-	session: RelaySession | null;
-}
-
-const { state, subscribe, set } = createExternalStore<AuthState>({
-	identity: null,
-	session: null,
-});
-
-export { subscribe };
-
-export const getIdentity = (): Identity | null => state.identity;
-export const getSession = (): RelaySession | null => state.session;
-
-export const useToken = () =>
-	useSyncExternalStore(subscribe, () => state.session?.token ?? null);
-
-export const useIdentity = () =>
-	useSyncExternalStore(subscribe, () => state.identity);
 
 async function authenticate(
 	keyPair: CryptoKeyPair,
@@ -88,9 +84,11 @@ async function authenticate(
 		address: identity.address,
 	};
 
-	set({ identity, session });
+	authState.set({ identity, session });
 	return identity;
 }
+
+// --- actions ---------------------------------------------------------------
 
 export interface LoginParams {
 	mnemonic: string;
@@ -116,22 +114,34 @@ export async function logout(): Promise<void> {
 	} catch (error) {
 		console.error('Failed to remove push subscription:', error);
 	}
-	set({ identity: null, session: null });
+	// Delete the key before clearing state: clearing state remounts the auth
+	// modal's session restorer immediately, and it must find no key to load —
+	// otherwise it races this delete and can kick off a fresh authenticate()
+	// right as we're logging out.
 	await deleteKeyPair();
+	authState.set({ identity: null, session: null });
 }
 
+/** Re-authenticate from the saved keypair — at boot, and again any time the
+ * relay stops honoring the current session (e.g. after a 401). Concurrent
+ * callers share one attempt, but each new call runs a fresh one: nothing here
+ * remembers a past result past the point where it settles. */
 let restoring: Promise<boolean> | null = null;
 export function restore(): Promise<boolean> {
 	if (!restoring) {
 		restoring = (async () => {
-			const keyPair = await loadKeyPair().catch(() => undefined);
-			if (!keyPair) return false;
 			try {
-				await authenticate(keyPair);
-				return true;
-			} catch {
-				await deleteKeyPair();
-				return false;
+				const keyPair = await loadKeyPair().catch(() => undefined);
+				if (!keyPair) return false;
+				try {
+					await authenticate(keyPair);
+					return true;
+				} catch {
+					await deleteKeyPair();
+					return false;
+				}
+			} finally {
+				restoring = null;
 			}
 		})();
 	}

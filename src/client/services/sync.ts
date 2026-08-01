@@ -21,13 +21,10 @@ import { base58ToBytes } from '@/shared/encoding';
 import type { Message } from '@/shared/protocol';
 import type { EncryptedPayload } from '@/shared/types';
 import { db } from '../db';
+import { createExternalState, useExternalState } from '../utils/externalState';
+import { createRetryingTask } from '../utils/retryingTask';
 import { playDing } from '../utils/sound';
-import {
-	getIdentity,
-	getSession,
-	type RelaySession,
-	subscribe as subscribeAuth,
-} from './auth';
+import { authState } from './auth';
 import { saveIncoming } from './chat';
 import {
 	type MessageStream,
@@ -103,15 +100,20 @@ function shouldAlert(sender: string): boolean {
 
 // --- the engine -------------------------------------------------------------
 
-let currentIdentity: Identity | null = null;
-let currentToken: string | null = null;
-let currentOwner: string | null = null;
-let stream: MessageStream | null = null;
-let outbox: Subscription | null = null;
-let retryTimer: ReturnType<typeof setTimeout> | null = null;
-// A flush is single-flight; overlapping triggers coalesce into one re-run.
-let flushing = false;
-let flushAgain = false;
+/** One live session with the relay: the identity driving it, the inbound
+ * stream, and the outbox watcher. `engine` is `null` whenever no session is
+ * up, so "is a session running" is a single check instead of several
+ * variables that must be kept in sync by hand. */
+interface Engine {
+	identity: Identity;
+	// Derived once from `identity.address`, so the many db queries below don't
+	// have to spell it out — never mutated, so it can't drift from `identity`.
+	owner: string;
+	stream: MessageStream;
+	outbox: Subscription;
+}
+
+let engine: Engine | null = null;
 
 /** Tell the relay a message was received, so it drops its stored copy. */
 function ack(id: string): void {
@@ -121,14 +123,12 @@ function ack(id: string): void {
 }
 
 async function handleIncoming(message: Message): Promise<void> {
-	const identity = currentIdentity;
-	const token = currentToken;
-	const owner = currentOwner;
-	if (!identity || !token || !owner) return;
+	const self = engine;
+	if (!self) return;
 
 	let body: string;
 	try {
-		body = await decryptFrom(identity, message.sender, message.payload);
+		body = await decryptFrom(self.identity, message.sender, message.payload);
 	} catch (error) {
 		// Not for us / tampered: drop it so the relay stops redelivering, but
 		// never let it reach the database.
@@ -138,7 +138,7 @@ async function handleIncoming(message: Message): Promise<void> {
 	}
 
 	try {
-		const isNew = await saveIncoming(owner, {
+		const isNew = await saveIncoming(self.owner, {
 			id: message.id,
 			peer: message.sender,
 			body,
@@ -150,122 +150,98 @@ async function handleIncoming(message: Message): Promise<void> {
 	} catch (_) {}
 }
 
-/** Drain the outbox: send every pending message, in order, flipping each to
- * `sent`. Stops at the first failure and schedules a retry, so ordering holds. */
-async function flushOutbox(): Promise<void> {
-	const identity = currentIdentity;
-	const token = currentToken;
-	const owner = currentOwner;
-	if (!identity || !token || !owner) return;
-	if (flushing) {
-		flushAgain = true;
-		return;
-	}
-	flushing = true;
-	try {
-		const pending = await db.messages
-			.where('[owner+status]')
-			.equals([owner, 'pending'])
-			.sortBy('at');
-		for (const message of pending) {
-			if (currentToken !== token) break; // session changed under us
-			try {
-				const payload = await encryptFor(identity, message.peer, message.body);
-				await sendMessage({ recipient: message.peer, payload });
-				await db.messages.update(message.id, { status: 'sent' });
-			} catch (error) {
-				console.error('Failed to send message; will retry:', error);
-				scheduleRetry();
-				break;
-			}
-		}
-	} finally {
-		flushing = false;
-		if (flushAgain) {
-			flushAgain = false;
-			void flushOutbox();
-		}
+/** Send every pending message, in order, flipping each to `sent`. Throws on
+ * the first failure and stops there — {@link flush} is what retries. */
+async function attemptFlush(): Promise<void> {
+	const self = engine;
+	if (!self) return;
+	const pending = await db.messages
+		.where('[owner+status]')
+		.equals([self.owner, 'pending'])
+		.sortBy('at');
+	for (const message of pending) {
+		if (engine !== self) return; // session changed under us
+		const payload = await encryptFor(self.identity, message.peer, message.body);
+		await sendMessage({ recipient: message.peer, payload });
+		await db.messages.update(message.id, { status: 'sent' });
 	}
 }
 
-function scheduleRetry(): void {
-	if (retryTimer) return;
-	retryTimer = setTimeout(() => {
-		retryTimer = null;
-		void flushOutbox();
-	}, RETRY_MS);
-}
+/** Drains the outbox. A new send, a reconnect, and a retry can all ask for a
+ * flush around the same time; {@link createRetryingTask} coalesces those into
+ * one run at a time and keeps retrying a failed one on its own. */
+const flush = createRetryingTask(attemptFlush, RETRY_MS);
 
-/** Bring the engine up for a session: open the inbound stream and start
- * watching the outbox. */
-function start(identity: Identity, session: RelaySession): void {
-	stop();
-	currentIdentity = identity;
-	currentToken = session.token;
-	currentOwner = identity.address;
-	const owner = identity.address;
+const streamStatusStore = createExternalState<boolean>(false);
 
-	stream = streamMessages({
-		// (Re)connected: push anything that queued while we were away.
-		onOpen: () => void flushOutbox(),
-		onMessage: (message) => void handleIncoming(message),
-		onError: (error) => console.error('Message stream error:', error),
-	});
-
-	// Re-run the outbox whenever the set of pending messages changes (a new send,
-	// or one we just marked sent).
-	outbox = liveQuery(() =>
-		db.messages.where('[owner+status]').equals([owner, 'pending']).count(),
-	).subscribe({
-		next: () => void flushOutbox(),
-		error: (error) => console.error('Outbox watch failed:', error),
-	});
-}
-
-/** Tear the engine down and return to a clean idle state. */
-function stop(): void {
-	stream?.close();
-	stream = null;
-	outbox?.unsubscribe();
-	outbox = null;
-	if (retryTimer) {
-		clearTimeout(retryTimer);
-		retryTimer = null;
-	}
-	flushing = false;
-	flushAgain = false;
-	keyCache.clear();
-	currentIdentity = null;
-	currentToken = null;
-	currentOwner = null;
-}
+export const useSyncStatus = () => useExternalState(streamStatusStore);
 
 // --- react to the auth service ---------------------------------------------
-
-// The token we last brought the engine up for — so a new session reconnects but
-// repeat notifications for the same one are ignored.
-let connectedToken: string | null = null;
-
-function syncFromAuth(): void {
-	const identity = getIdentity();
-	const session = getSession();
-	if (identity && session) {
-		if (session.token === connectedToken) return;
-		connectedToken = session.token;
-		start(identity, session);
-	} else if (connectedToken !== null) {
-		connectedToken = null;
-		stop();
-	}
-}
 
 let started = false;
 
 /** Start the background sync service. Call once, at app boot; idempotent. */
-export function startSync(): void {
+export const startSync = () => {
 	if (started) return;
 	started = true;
-	subscribeAuth(syncFromAuth);
+
+	/** Tear the engine down and return to a clean idle state. */
+	const stop = () => {
+		if (!engine) return;
+		engine.stream.close();
+		engine.outbox.unsubscribe();
+		flush.stop();
+		keyCache.clear();
+		streamStatusStore.set(false);
+		engine = null;
+	};
+
+	/** Bring the engine up for an identity: open the inbound stream and start
+	 * watching the outbox. */
+	const start = (identity: Identity) => {
+		stop();
+		const owner = identity.address;
+		engine = {
+			identity,
+			owner,
+			stream: streamMessages({
+				// (Re)connected: push anything that queued while we were away.
+				onOpen: () => {
+					flush.trigger();
+					streamStatusStore.set(true);
+				},
+				onMessage: (message) => void handleIncoming(message),
+				onError: (error) => console.error('Message stream error:', error),
+				onClose: () => {
+					streamStatusStore.set(false);
+				},
+			}),
+			// Re-run the outbox whenever the set of pending messages changes (a new
+			// send, or one we just marked sent).
+			outbox: liveQuery(() =>
+				db.messages.where('[owner+status]').equals([owner, 'pending']).count(),
+			).subscribe({
+				next: () => flush.trigger(),
+				error: (error) => console.error('Outbox watch failed:', error),
+			}),
+		};
+	};
+
+	const syncFromAuth = () => {
+		const { identity, session } = authState.state;
+		if (identity && session) {
+			// Same identity already running: leave it alone. `identity` gets a new
+			// object on every re-authentication (e.g. a token refresh after a
+			// 401), so this compares the stable address rather than object
+			// identity.
+			if (engine?.owner === identity.address) return;
+			start(identity);
+		} else if (engine) {
+			stop();
+		}
+	};
+
+	authState.subscribe(syncFromAuth);
 	// Pick up a session that auto-login may have restored before this ran.
 	syncFromAuth();
-}
+};

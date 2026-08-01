@@ -229,7 +229,7 @@ function draw(rng: () => number): { strokes: Stroke[]; genes: Genes } {
 		strokes,
 		genes: {
 			slant: (rng() * 30 - 12) * (Math.PI / 180), // -12°..+18°
-			weight: 1 + rng() * 0.9, // 1.0..1.9 — a fine pen, lightly varied
+			weight: 1 + rng(), // 1.0..1.9 — a fine pen, lightly varied
 			tension: 0.1 + rng() * 0.18, // 0.10..0.28
 		},
 	};
@@ -306,7 +306,7 @@ function fitToFrame(strokes: Stroke[], genes: Genes): string {
  *   still works — its raw characters seed the drawing instead.
  * @returns a self-contained `<svg>` string that strokes in `currentColor`.
  */
-export function signature(address: string): string {
+export function generateSignature(address: string): string {
 	let bytes: Uint8Array;
 	try {
 		bytes = base58ToBytes(address);

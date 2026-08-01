@@ -10,16 +10,27 @@ import type {
 	SendMessageRequest,
 	UserResponse,
 } from '@/shared/protocol';
-import { getSession, restore } from './auth';
+import { authState, restore } from './auth';
 
 const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
 
 /** Attach the current session token (if any) as a `Bearer` header, so every
  * relay call carries auth without each endpoint threading the token itself. */
 const attachToken: FetchHook = ({ options }) => {
-	const token = getSession()?.token;
+	const token = authState.state.session?.token;
 	if (token) {
 		options.headers.set('authorization', `Bearer ${token}`);
+	}
+};
+
+/** A stale/expired token means the relay answers with 401. Re-authenticate via
+ * {@link restore} so the *retried* request — see `retryStatusCodes` below on
+ * both clients — goes out with a fresh one: ofetch reruns `onRequest` (and so
+ * `attachToken`) on every retry, and awaits this hook before deciding to
+ * retry, so by then `restore()` has already updated the session. */
+const restoreOn401: FetchHook = async ({ response }) => {
+	if (response?.status === 401 && authState.state.session?.token) {
+		await restore();
 	}
 };
 
@@ -27,27 +38,23 @@ const api = ofetch.create({
 	baseURL: RELAY_URL,
 	headers: { 'content-type': 'application/json' },
 	onRequest: [attachToken],
-	onResponseError: [
-		async ({ response }) => {
-			console.log(response);
-			if (response?.status === 401 && getSession()?.token) {
-				await restore();
-			}
-		},
-	],
+	onResponseError: [restoreOn401],
 	retry: 3,
 	retryDelay: 3000,
 	retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
 });
 
 /** A separate client for the long-lived `GET /messages` SSE stream: it hands the
- * response body back as a raw byte stream instead of parsing it, and never
- * retries — you don't retry a live connection (reconnecting is the sync
- * service's job). */
+ * response body back as a raw byte stream instead of parsing it. Only retries
+ * a 401 in place (via `restoreOn401`, same as `api`) — any other failure is
+ * {@link streamMessages}'s own job to reconnect from, not a request-level retry. */
 const streamApi = ofetch.create({
 	baseURL: RELAY_URL,
 	onRequest: [attachToken],
-	retry: false,
+	onResponseError: [restoreOn401],
+	retry: 3,
+	retryDelay: 0,
+	retryStatusCodes: [401],
 });
 
 export const sendMessage = (body: SendMessageRequest) =>
@@ -67,28 +74,49 @@ export interface MessageStream {
 }
 
 export interface MessageStreamHandlers {
-	/** The connection was accepted; queued messages (if any) follow. */
+	/** The connection was accepted; queued messages (if any) follow. Fires
+	 * again after every reconnect, not just the first connection. */
 	onOpen?: () => void;
 	onMessage: (message: Message) => void;
-	/** The connection ended (relay closed it, or {@link MessageStream.close} was
-	 * called). Not fired after {@link close} is called explicitly. */
+	/** The connection is down — it failed to open, dropped mid-stream, or the
+	 * relay ended it cleanly — and a reconnect is already scheduled. Never
+	 * fires after {@link MessageStream.close} was called explicitly. */
 	onClose?: () => void;
+	/** Either paired with `onClose` (a connection-level failure) or standalone
+	 * (a single unparseable message frame; the stream reads on regardless). */
 	onError?: (error: unknown) => void;
 }
+
+/** How long to wait before reopening the stream after it drops for any reason
+ * other than {@link MessageStream.close} being called. */
+const RECONNECT_MS = 5000;
 
 /**
  * Open the `GET /messages` Server-Sent Events stream. Goes through {@link
  * streamApi} (rather than `EventSource`) because the endpoint is gated by an
- * `Authorization` header, which `EventSource` cannot send; `responseType:
- * 'stream'` hands back the raw body so we can parse SSE frames as they arrive
- * instead of ofetch buffering and JSON-parsing the whole response.
+ * `Authorization` header, which `EventSource` cannot send — but like
+ * `EventSource`, the subscription keeps itself alive: any drop is followed by
+ * a reconnect after {@link RECONNECT_MS}, until {@link MessageStream.close} is
+ * called. `responseType: 'stream'` hands back the raw body so we can parse SSE
+ * frames as they arrive instead of ofetch buffering and JSON-parsing the whole
+ * response. A 401 (expired/rotated token) already re-authenticated and
+ * retried itself inside `streamApi` before this ever sees an error — see
+ * `restoreOn401` above.
  */
 export const streamMessages = (
 	handlers: MessageStreamHandlers,
 ): MessageStream => {
 	const controller = new AbortController();
+	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-	(async () => {
+	function scheduleReconnect(): void {
+		reconnectTimer = setTimeout(() => {
+			reconnectTimer = null;
+			void connect();
+		}, RECONNECT_MS);
+	}
+
+	async function connect(): Promise<void> {
 		let body: ReadableStream<Uint8Array>;
 		try {
 			body = await streamApi('/messages', {
@@ -99,6 +127,8 @@ export const streamMessages = (
 			// ofetch throws on a non-2xx response, a network failure, or the abort.
 			if (controller.signal.aborted) return;
 			handlers.onError?.(error);
+			handlers.onClose?.();
+			scheduleReconnect();
 			return;
 		}
 
@@ -132,14 +162,25 @@ export const streamMessages = (
 					boundary = buffer.indexOf('\n\n');
 				}
 			}
-			handlers.onClose?.();
 		} catch (error) {
 			if (controller.signal.aborted) return;
 			handlers.onError?.(error);
 		}
-	})();
 
-	return { close: () => controller.abort() };
+		// Reached whether the relay ended the stream cleanly or the read loop
+		// threw — either way the connection is gone and worth reopening.
+		handlers.onClose?.();
+		scheduleReconnect();
+	}
+
+	void connect();
+
+	return {
+		close: () => {
+			controller.abort();
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+		},
+	};
 };
 
 export const getMe = () => api<MeResponse>('/auth/me');

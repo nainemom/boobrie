@@ -18,7 +18,7 @@ import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback } from 'react';
 import { db, type StoredConversation, type StoredMessage } from '../db';
-import { useIdentity } from './auth';
+import { useAuth } from './auth';
 
 /** A conversation plus the bits the list needs to render at a glance. */
 export interface ConversationSummary extends StoredConversation {
@@ -32,7 +32,7 @@ export interface ConversationSummary extends StoredConversation {
  * last message and unread count, live. `undefined` until the first read resolves
  * — so callers can tell "loading" from "none". */
 export function useConversations(): ConversationSummary[] | undefined {
-	const owner = useIdentity()?.address ?? null;
+	const owner = useAuth().identity?.address ?? null;
 	return useLiveQuery<ConversationSummary[]>(async () => {
 		if (!owner) return [];
 		const conversations = await db.conversations
@@ -68,7 +68,7 @@ export function useConversations(): ConversationSummary[] | undefined {
 /** The conversation with `address`, oldest message first, live. `undefined`
  * until the first read resolves — so callers can tell "loading" from "empty". */
 export function useMessages(address: string): StoredMessage[] | undefined {
-	const owner = useIdentity()?.address ?? null;
+	const owner = useAuth().identity?.address ?? null;
 	return useLiveQuery<StoredMessage[]>(
 		() =>
 			owner
@@ -142,7 +142,7 @@ export async function saveIncoming(
 
 /** Open (or surface) a conversation with `peer`, for the current identity. */
 export function useCreateConversation(): (peer: string) => Promise<void> {
-	const owner = useIdentity()?.address ?? null;
+	const owner = useAuth().identity?.address ?? null;
 	return useCallback(
 		async (peer: string) => {
 			if (!owner) throw new Error('Not signed in.');
@@ -158,7 +158,7 @@ export function useSendMessage(): (
 	peer: string,
 	body: string,
 ) => Promise<void> {
-	const owner = useIdentity()?.address ?? null;
+	const owner = useAuth().identity?.address ?? null;
 	return useCallback(
 		async (peer: string, body: string) => {
 			if (!owner) throw new Error('Not signed in.');
@@ -182,7 +182,7 @@ export async function markConversationRead(
 
 /** Clear the unread badge for a conversation — call it while the chat is open. */
 export function useMarkConversationRead(): (peer: string) => Promise<void> {
-	const owner = useIdentity()?.address ?? null;
+	const owner = useAuth().identity?.address ?? null;
 	return useCallback(
 		async (peer: string) => {
 			if (!owner) return;
