@@ -49,7 +49,7 @@ export const button = tv({
 		{ iconOnly: false, size: 6, class: 'px-2' },
 		{ iconOnly: false, size: 8, class: 'px-2.5' },
 		{ iconOnly: false, size: 10, class: 'px-3' },
-		{ iconOnly: false, size: 12, class: 'px-4' },
+		{ iconOnly: false, size: 12, class: 'px-3' },
 		{ iconOnly: false, size: 14, class: 'px-4' },
 	],
 	defaultVariants: {

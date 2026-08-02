@@ -13,7 +13,7 @@ export const input = tv({
 			6: 'h-6 px-2 rounded-sm text-xs',
 			8: 'h-8 px-2.5 rounded-sm text-xs',
 			10: 'h-10 px-3 rounded-sm text-sm',
-			12: 'h-12 px-4 rounded-sm text-sm',
+			12: 'h-12 px-3 rounded-sm text-sm',
 			14: 'h-14 px-4 rounded-sm text-sm',
 		},
 	},

@@ -6,12 +6,12 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Form } from '../components/Form';
 import { FormField } from '../components/FormField';
-import { Input } from '../components/Input';
 import { MessageList } from '../components/MessageList';
 import { Navbar } from '../components/Navbar';
 import { Page } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { CenterSpinner } from '../components/Spinner';
+import { Textarea } from '../components/Textarea';
 import { useAuth } from '../services/auth';
 import {
 	useCreateConversation,
@@ -115,15 +115,21 @@ export function ChatPage() {
 
 			<Navbar
 				position="bottom"
+				height="dynamic"
 				middle={
 					<Form onSubmit={submit} className="contents">
 						<FormField error={sendError} className="size-full">
-							<Input
+							<Textarea
 								value={draft}
 								onChange={(event) => setDraft(event.target.value)}
+								size={12}
 								placeholder="Type a message"
-								className="size-full"
-								size={14}
+								className="min-size-full"
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' && !e.shiftKey) {
+										submit(e);
+									}
+								}}
 							/>
 						</FormField>
 					</Form>
@@ -136,6 +142,7 @@ export function ChatPage() {
 						aria-label="Send"
 						disabled={draft.trim() === ''}
 						onClick={submit}
+						className="self-end"
 					>
 						<SendIcon />
 					</Button>

@@ -224,7 +224,8 @@ const SignInStep: FC<SignInStepProps> = ({ busy, error, onSubmit }) => {
 			>
 				<Textarea
 					id="recovery-phrase-input"
-					className="h-28 w-full"
+					className="w-full"
+					size={12}
 					placeholder="word1 word2 … word12"
 					autoFocus
 					autoCapitalize="none"
