@@ -1,4 +1,5 @@
 import {
+	DicesIcon,
 	MessageCircleIcon,
 	PlusIcon,
 	SettingsIcon,
@@ -81,9 +82,9 @@ export function ConversationsPage() {
 				variant="outline"
 				onClick={() => setMatching(true)}
 				aria-label="Talk to a stranger"
-				className="absolute bottom-22 right-4"
+				className="absolute bottom-20 right-4 rounded-full"
 			>
-				<ShuffleIcon />
+				<DicesIcon />
 			</Button>
 
 			<Button
@@ -91,7 +92,7 @@ export function ConversationsPage() {
 				size={14}
 				onClick={() => setCreating(true)}
 				aria-label="New chat"
-				className="absolute bottom-4 right-4"
+				className="absolute bottom-4 right-4 rounded-full"
 			>
 				<PlusIcon />
 			</Button>

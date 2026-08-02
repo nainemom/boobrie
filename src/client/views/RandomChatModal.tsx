@@ -1,3 +1,4 @@
+import { LoaderIcon, MessageSquareIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { useLocation } from 'wouter';
@@ -91,14 +92,16 @@ export function RandomChatModal({ onClose }: { onClose: () => void }) {
 						<div className="flex flex-col items-center gap-3 py-2">
 							<Avatar
 								address={shuffleSeed}
-								className="size-32 motion-reduce:animate-none"
+								className="size-36 motion-reduce:animate-none animate-pulse"
 							/>
-							<span className="text-base text-neutral-500">
-								Finding someone online…
+							<span className="text-base text-neutral-500 flex items-center gap-1">
+								<LoaderIcon size={16} className="animate-spin" /> Finding
+								someone online…
 							</span>
 						</div>
 						<FormActions>
 							<Button
+								size={12}
 								variant="outline"
 								className="col-span-3"
 								onClick={onClose}
@@ -110,16 +113,17 @@ export function RandomChatModal({ onClose }: { onClose: () => void }) {
 				) : (
 					<>
 						<div className="flex flex-col items-center gap-3 py-2">
-							<Avatar address={search.data} className="size-20" />
-							<span className="w-full truncate text-center text-sm text-neutral-500">
+							<Avatar address={search.data} className="size-36" />
+							<span className="w-full truncate text-center text-base text-neutral-800">
 								{truncateAddress(search.data)}
 							</span>
 						</div>
 						<FormActions>
-							<Button variant="outline" onClick={skip}>
+							<Button size={12} variant="outline" onClick={skip}>
 								Skip
 							</Button>
-							<Button className="col-span-2" onClick={chat}>
+							<Button size={12} className="col-span-2" onClick={chat}>
+								<MessageSquareIcon size={16} />
 								Chat
 							</Button>
 						</FormActions>

@@ -61,6 +61,7 @@ export function CreateChatModal({ onClose }: { onClose: () => void }) {
 					<Input
 						id="peer-input"
 						value={input}
+						size={12}
 						onChange={(event) => setInput(event.target.value)}
 						placeholder="address or @handle"
 						autoFocus
@@ -68,9 +69,13 @@ export function CreateChatModal({ onClose }: { onClose: () => void }) {
 				</FormField>
 
 				<FormActions>
+					<Button size={12} variant="outline" onClick={onClose}>
+						Cancel
+					</Button>
 					<Button
 						type="submit"
-						className="col-span-3"
+						className="col-span-2"
+						size={12}
 						disabled={!foundUser}
 						loading={pending}
 					>
