@@ -1,5 +1,6 @@
 import { CheckIcon } from 'lucide-react';
 import { type FC, useEffect, useRef } from 'react';
+import { twMerge } from 'tailwind-merge';
 import type { StoredMessage } from '../db';
 
 const formatTime = (at: number) =>
@@ -22,23 +23,39 @@ export const MessageList: FC<{ messages: StoredMessage[] }> = ({
 				return (
 					<li
 						key={message.id}
-						className={`flex flex-col ${outgoing ? 'items-end' : 'items-start'}`}
+						className={twMerge(
+							'flex flex-col',
+							outgoing ? 'items-end' : 'items-start',
+						)}
 					>
 						<div
-							className={`max-w-[75%] whitespace-pre-wrap wrap-break-word rounded-md p-3 text-base ${
+							className={twMerge(
+								'max-w-[75%] relative whitespace-pre-wrap wrap-break-word rounded-sm p-3 text-sm',
 								outgoing
-									? 'rounded-br-none bg-primary text-on-primary'
-									: 'rounded-bl-none bg-neutral-200 text-neutral-800'
-							} ${message.status === 'pending' ? 'opacity-60' : ''}`}
+									? 'bg-primary text-on-primary'
+									: 'bg-neutral-200 text-neutral-800',
+								message.status === 'pending' ? 'opacity-60' : '',
+							)}
 						>
+							<div
+								className={twMerge(
+									'absolute size-3 top-1/2 -translate-y-1/2',
+									outgoing
+										? 'bg-primary -right-3 rotate-90'
+										: '-left-3 bg-neutral-200 -scale-100 rotate-90',
+								)}
+								style={{
+									clipPath: 'polygon(50% 50%, 0% 100%, 100% 100%)',
+								}}
+							/>
 							{message.body}
 						</div>
-						<span className="mt-0.5 flex items-center gap-1 text-sm text-neutral-400">
+						<span className="mt-1 flex items-center gap-1 text-xs text-neutral-400">
 							{message.status === 'pending'
 								? 'Sending…'
 								: formatTime(message.at)}
 							{outgoing && message.status === 'sent' ? (
-								<CheckIcon size={14} />
+								<CheckIcon size={12} />
 							) : null}
 						</span>
 					</li>
