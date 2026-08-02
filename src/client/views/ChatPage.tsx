@@ -1,6 +1,5 @@
 import { ChevronLeftIcon, SendIcon } from 'lucide-react';
 import { type SyntheticEvent, useEffect, useState } from 'react';
-import useSWR from 'swr';
 import { Link, useParams } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -12,42 +11,22 @@ import { Page } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { CenterSpinner } from '../components/Spinner';
 import { Textarea } from '../components/Textarea';
-import { useAuth } from '../services/auth';
 import {
-	useCreateConversation,
 	useMarkConversationRead,
 	useMessages,
 	useSendMessage,
 } from '../services/chat';
-import { getUser } from '../services/relay';
 import { truncateAddress } from '../utils/address';
 import { errorMessage } from '../utils/errors';
 
 export function ChatPage() {
 	const { address } = useParams<{ address: string }>();
-	const token = useAuth().session?.token;
 	const messages = useMessages(address);
 	const sendMessage = useSendMessage();
-	const createConversation = useCreateConversation();
 	const markRead = useMarkConversationRead();
 
 	const [draft, setDraft] = useState('');
 	const [sendError, setSendError] = useState<string | null>(null);
-
-	const profile = useSWR(
-		token ? `user-${address}` : null,
-		() => getUser(address),
-		{
-			revalidateOnFocus: false,
-			revalidateOnReconnect: false,
-			revalidateIfStale: false,
-		},
-	);
-
-	useEffect(() => {
-		// Surface the conversation in the list the moment it's opened.
-		if (profile.data) void createConversation(profile.data.address);
-	}, [profile.data, createConversation]);
 
 	// Seeing the chat — opening it, a message landing while it's on screen, or the
 	// tab regaining focus — clears its unread badge. Gated on focus so messages

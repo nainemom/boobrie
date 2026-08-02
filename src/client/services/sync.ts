@@ -25,7 +25,7 @@ import { createExternalState, useExternalState } from '../utils/externalState';
 import { createRetryingTask } from '../utils/retryingTask';
 import { playDing } from '../utils/sound';
 import { authState } from './auth';
-import { saveIncoming } from './chat';
+import { getPendingOutgoing, markSent, saveIncoming } from './chat';
 import {
 	type MessageStream,
 	readMessage,
@@ -138,7 +138,7 @@ async function handleIncoming(message: Message): Promise<void> {
 	}
 
 	try {
-		const isNew = await saveIncoming(self.owner, {
+		const isNew = await saveIncoming(self.identity, {
 			id: message.id,
 			peer: message.sender,
 			body,
@@ -155,15 +155,12 @@ async function handleIncoming(message: Message): Promise<void> {
 async function attemptFlush(): Promise<void> {
 	const self = engine;
 	if (!self) return;
-	const pending = await db.messages
-		.where('[owner+status]')
-		.equals([self.owner, 'pending'])
-		.sortBy('at');
+	const pending = await getPendingOutgoing(self.identity);
 	for (const message of pending) {
 		if (engine !== self) return; // session changed under us
 		const payload = await encryptFor(self.identity, message.peer, message.body);
 		await sendMessage({ recipient: message.peer, payload });
-		await db.messages.update(message.id, { status: 'sent' });
+		await markSent(self.identity, message.id);
 	}
 }
 
@@ -216,10 +213,13 @@ export const startSync = () => {
 					streamStatusStore.set(false);
 				},
 			}),
-			// Re-run the outbox whenever the set of pending messages changes (a new
-			// send, or one we just marked sent).
+			// Re-run the outbox whenever this identity's messages change (a new
+			// send, one we just marked sent, an incoming arrival, ...). Flushing is
+			// cheap to no-op, so triggering on any change is simpler than tracking
+			// pending-only — and the encrypted payload can't be filtered on status
+			// without decrypting it anyway.
 			outbox: liveQuery(() =>
-				db.messages.where('[owner+status]').equals([owner, 'pending']).count(),
+				db.messages.where('owner').equals(owner).count(),
 			).subscribe({
 				next: () => flush.trigger(),
 				error: (error) => console.error('Outbox watch failed:', error),

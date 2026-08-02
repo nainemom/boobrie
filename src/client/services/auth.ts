@@ -1,5 +1,6 @@
 import { ofetch } from 'ofetch';
 import { db } from '@/client/db';
+import { clearLocalKeyCache } from '@/client/services/chat';
 import { unsubscribeFromPush } from '@/client/services/push';
 import { editPushSubscription } from '@/client/services/relay';
 import {
@@ -119,6 +120,7 @@ export async function logout(): Promise<void> {
 	// otherwise it races this delete and can kick off a fresh authenticate()
 	// right as we're logging out.
 	await deleteKeyPair();
+	clearLocalKeyCache();
 	authState.set({ identity: null, session: null });
 }
 

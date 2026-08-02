@@ -8,6 +8,9 @@
 /** HKDF `info` label used when deriving the one-off AES key for the auth challenge. */
 export const AUTH_KDF_INFO = 'viska-auth-challenge';
 
+/** HKDF `info` label used when deriving the key that encrypts local storage. */
+export const LOCAL_STORE_KDF_INFO = 'viska-local-store';
+
 /** List of reserved usernames/handles that users cannot claim. */
 export const RESERVED_HANDLES = [
 	'admin',

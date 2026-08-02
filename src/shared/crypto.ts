@@ -1,4 +1,4 @@
-import { AUTH_KDF_INFO } from './constants.ts';
+import { AUTH_KDF_INFO, LOCAL_STORE_KDF_INFO } from './constants.ts';
 import {
 	base58ToBytes,
 	bytesToBase58,
@@ -84,6 +84,21 @@ export async function deriveConversationKey(
 	const peerPublicKey = await importPublicKeyRaw(peerPublicKeyRaw);
 	const info = `viska-convo|${[selfBareJid, peerBareJid].sort().join('|')}`;
 	return deriveAesKey(myPrivateKey, peerPublicKey, info);
+}
+
+/**
+ * Derive the key that encrypts this identity's local database. Static-static
+ * ECDH of the key pair with itself, so it's deterministic — the same identity
+ * always re-derives the same key, with no separate secret to store or lose.
+ */
+export function deriveLocalStorageKey(
+	keyPair: CryptoKeyPair,
+): Promise<CryptoKey> {
+	return deriveAesKey(
+		keyPair.privateKey,
+		keyPair.publicKey,
+		LOCAL_STORE_KDF_INFO,
+	);
 }
 
 // --- message encryption ----------------------------------------------------
