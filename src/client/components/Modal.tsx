@@ -4,7 +4,7 @@ import { tv } from 'tailwind-variants';
 import { Button } from './Button';
 
 const panel = tv({
-	base: 'max-h-[calc(100%-2rem)] w-full max-w-sm overflow-y-auto rounded-sm p-3 bg-neutral-50 text-neutral-800',
+	base: 'max-h-[calc(100%-2rem)] w-full max-w-sm overflow-x-visible overflow-y-auto rounded-sm p-3 bg-neutral-50 text-neutral-800',
 });
 
 /**
@@ -43,13 +43,13 @@ export const Modal: FC<{
 							disabled={backDisabled}
 							iconOnly
 							className="shrink-0"
-							size={10}
+							size={8}
 							variant="transparent"
 						>
-							<ChevronLeftIcon />
+							<ChevronLeftIcon size={16} />
 						</Button>
 					)}
-					<div className="grow pt-1.5">
+					<div className="grow">
 						{titleContent && (
 							<h3 className="text-2xl font-bold flex items-center gap-1">
 								{titleContent}
@@ -64,10 +64,10 @@ export const Modal: FC<{
 							onClick={onClose}
 							iconOnly
 							className="shrink-0"
-							size={10}
+							size={8}
 							variant="transparent"
 						>
-							<XIcon />
+							<XIcon size={16} />
 						</Button>
 					)}
 				</div>

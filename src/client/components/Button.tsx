@@ -6,21 +6,25 @@ export const button = tv({
 	base: [
 		'inline-flex items-center justify-center gap-2 relative',
 		'uppercase font-semibold cursor-pointer',
-		'outline-none border',
+		'outline-dashed -outline-offset-1 outline-transparent border',
 		'disabled:pointer-events-none',
 	],
 	variants: {
 		variant: {
 			primary: [
-				'bg-primary border-primary hover:bg-primary-hover focus-visible:border-2 focus-visible:border-neutral-50 focus-visible:ring focus-visible:ring-primary active:bg-primary-active text-on-primary',
+				'bg-primary border-primary hover:bg-primary-hover focus-visible:border-neutral-50 focus-visible:outline-primary active:bg-primary-active text-on-primary',
+				'disabled:bg-neutral-500 disabled:border-transparent',
+			],
+			danger: [
+				'bg-red-900 border-red-900 hover:bg-red-800 focus-visible:border-neutral-50 focus-visible:outline-primary active:bg-red-900 text-neutral-50',
 				'disabled:bg-neutral-500 disabled:border-transparent',
 			],
 			outline: [
-				'bg-neutral-100 border-neutral-200 hover:border-neutral-300 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-600/10 text-neutral-800',
+				'bg-neutral-100 border-neutral-200 hover:border-neutral-300 focus-visible:outline-neutral-800 active:bg-neutral-600/10 text-neutral-800',
 				'disabled:text-neutral-300',
 			],
 			transparent: [
-				'bg-neutral-50 border-neutral-50 hover:bg-neutral-100 focus-visible:ring focus-visible:ring-neutral-800 active:bg-neutral-200 text-neutral-800',
+				'bg-neutral-50 border-neutral-50 hover:bg-neutral-100 focus-visible:outline-neutral-800 active:bg-neutral-200 text-neutral-800',
 				'disabled:text-neutral-300',
 			],
 		},

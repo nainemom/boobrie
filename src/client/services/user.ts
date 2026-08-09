@@ -150,18 +150,28 @@ export async function changeDiscoverable(discoverable: boolean): Promise<void> {
 	userState.patch({ me: me ? { ...me, discoverable: res.discoverable } : me });
 }
 
-/** Ask the browser for notification permission. Call from a user gesture (a
- * click handler) — browsers ignore the prompt otherwise. */
-export async function grantPermission(): Promise<void> {
+/** Subscribe this device in one step: request notification permission if it
+ * hasn't been decided yet, then register the push subscription. Call from a
+ * user gesture (a click handler) — browsers ignore the permission prompt
+ * otherwise. A no-op once permission is denied or unsupported; that's
+ * reflected through `permission`, not a thrown error. */
+export async function subscribeDevice(): Promise<void> {
 	userState.patch({ pushError: null });
-	try {
-		userState.patch({ permission: await requestNotificationPermission() });
-	} catch (error) {
-		userState.patch({ pushError: errorMessage(error) });
+	let { permission } = userState.state;
+	if (permission !== 'granted') {
+		try {
+			permission = await requestNotificationPermission();
+			userState.patch({ permission });
+		} catch (error) {
+			userState.patch({ pushError: errorMessage(error) });
+			return;
+		}
 	}
+	if (permission !== 'granted') return;
+	await enablePush();
 }
 
-export async function enablePush(): Promise<void> {
+async function enablePush(): Promise<void> {
 	const { me, session } = userState.state;
 	const vapidPublicKey = me?.vapidPublicKey;
 	if (!vapidPublicKey || !session) return;

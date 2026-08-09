@@ -1,15 +1,17 @@
 import { ChevronRightIcon } from 'lucide-react';
 import type { FC } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { Link } from 'wouter';
 import type { ConversationSummary } from '../services/chat';
 import { truncateAddress } from '../utils/address';
 import { Avatar } from './Avatar';
 import { NumberBadge } from './NumberBadge';
 
-export const ConversationList: FC<{ conversations: ConversationSummary[] }> = ({
-	conversations,
-}) => (
-	<ul className="space-y-3 p-3">
+export const ConversationList: FC<{
+	conversations: ConversationSummary[];
+	className?: string;
+}> = ({ conversations, className }) => (
+	<ul className={twMerge('space-y-3', className)}>
 		{conversations.map((conversation) => {
 			const { lastMessage, unreadCount } = conversation;
 			const hasUnread = unreadCount > 0;

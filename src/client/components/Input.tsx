@@ -3,8 +3,8 @@ import { tv, type VariantProps } from 'tailwind-variants';
 
 export const input = tv({
 	base: [
-		'outline-none border rounded-xl select-text',
-		'bg-neutral-50 border-neutral-200 focus:ring focus:ring-neutral-800 text-neutral-800',
+		'outline-none border rounded-xl select-text w-auto min-w-auto',
+		'bg-neutral-50 border-neutral-200 outline-dashed -outline-offset-1 outline-transparent focus:outline-neutral-800 text-neutral-800',
 		'read-only:text-neutral-500',
 		'disabled:opacity-40 disabled:pointer-events-none',
 	],

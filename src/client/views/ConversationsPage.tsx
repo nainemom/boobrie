@@ -6,7 +6,6 @@ import {
 	ShuffleIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'wouter';
 import { Button } from '../components/Button';
 import { ConversationList } from '../components/ConversationList';
 import { Navbar } from '../components/Navbar';
@@ -17,12 +16,14 @@ import { useAuth } from '../services/auth';
 import { useConversations } from '../services/chat';
 import { CreateChatModal } from './CreateChatModal';
 import { RandomChatModal } from './RandomChatModal';
+import { SettingsModal } from './SettingsModal';
 
 export function ConversationsPage() {
 	const conversations = useConversations();
 	const { identity } = useAuth();
 	const [creating, setCreating] = useState(false);
 	const [matching, setMatching] = useState(false);
+	const [settings, setSettings] = useState(false);
 
 	return (
 		<Page>
@@ -34,16 +35,15 @@ export function ConversationsPage() {
 					</div>
 				}
 				end={
-					<Link href="/settings" aria-label="Settings" className="contents">
-						<Button
-							size={12}
-							iconOnly
-							loading={!identity}
-							variant="transparent"
-						>
-							<SettingsIcon />
-						</Button>
-					</Link>
+					<Button
+						size={12}
+						iconOnly
+						loading={!identity}
+						variant="transparent"
+						onClick={() => setSettings(true)}
+					>
+						<SettingsIcon />
+					</Button>
 				}
 			/>
 
@@ -72,7 +72,7 @@ export function ConversationsPage() {
 						</div>
 					</div>
 				) : (
-					<ConversationList conversations={conversations} />
+					<ConversationList className="p-3" conversations={conversations} />
 				)}
 			</div>
 
@@ -100,6 +100,8 @@ export function ConversationsPage() {
 			{creating && <CreateChatModal onClose={() => setCreating(false)} />}
 
 			{matching && <RandomChatModal onClose={() => setMatching(false)} />}
+
+			{settings && <SettingsModal onClose={() => setSettings(false)} />}
 		</Page>
 	);
 }

@@ -5,7 +5,6 @@ import { AuthModal } from './views/AuthModal';
 import { ChatPage } from './views/ChatPage';
 import { ChatRedirectPage } from './views/ChatRedirectPage';
 import { ConversationsPage } from './views/ConversationsPage';
-import { SettingsPage } from './views/SettingsPage';
 
 export function App() {
 	return (
@@ -14,7 +13,6 @@ export function App() {
 				<Router>
 					<Switch>
 						<Route path="/" component={ConversationsPage} />
-						<Route path="/settings" component={SettingsPage} />
 						<Route path="/i/:address" component={ChatPage} />
 						<Route path="/:handle" component={ChatRedirectPage} />
 						<Route path="/">
