@@ -18,6 +18,13 @@ export default defineConfig({
 			swSrc: 'src/client/sw.ts',
 			swDest: 'sw.js',
 			globDirectory: 'dist',
+			// Precache every built file, not just Serwist's default js/css/html: the
+			// app has to boot with no network, icons and all.
+			globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,woff,woff2,json}'],
+			// The default 2 MiB cap drops oversized files from the manifest with only
+			// a build warning — for the app's own bundle that would mean a silently
+			// offline-broken build.
+			maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
 			injectionPoint: 'self.__SW_MANIFEST',
 			rollupFormat: 'iife',
 		}),

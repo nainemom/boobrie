@@ -1,23 +1,36 @@
 /**
  * The service worker.
  *
- * Two jobs, one file:
- *   1. Serwist — precache + runtime caching. Right now it just makes the app
- *      shell cacheable; it's the seam where offline/PWA behaviour grows later.
- *   2. Web Push — turn the relay's offline nudge into a notification, and focus
+ * Three jobs, one file:
+ *   1. Precache — every built file (shell, bundles, styles, icons) is stored on
+ *      install, so a cold start with no network at all still boots the app.
+ *   2. Runtime caching — one rule, drawn along the app/data line:
+ *        · *local* requests (this origin: bundles, styles, images, the shell)
+ *          are answered from the cache whenever there is a copy, and refreshed
+ *          in the background for the next load. Offline is the normal case, not
+ *          a fallback.
+ *        · Google Fonts get the same treatment — remote, but part of the shell.
+ *        · everything else — the relay's API and its message stream — is not
+ *          routed at all, so it goes straight to the network, untouched and
+ *          uncached. No connection means no answer, which is what we want:
+ *          chat data is either live or absent, never stale.
+ *   3. Web Push — turn the relay's offline nudge into a notification, and focus
  *      (or open) the app when it's clicked.
  *
  * The push payload is metadata only (see {@link PushPayload}); the SW can't
  * decrypt messages, so a click just brings the app forward, which reconnects to
  * the relay and pulls whatever was waiting.
  *
- * Excluded from the app's tsconfig and type-checked via tsconfig.worker.json,
- * because it runs in a Worker global, not the DOM.
+ * Excluded from the app's tsconfig, because it runs in a Worker global, not the
+ * DOM.
  */
 
-import { defaultCache } from '@serwist/vite/worker';
-import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import type {
+	PrecacheEntry,
+	RouteMatchCallbackOptions,
+	SerwistGlobalConfig,
+} from 'serwist';
+import { NetworkOnly, Serwist, StaleWhileRevalidate } from 'serwist';
 import type { PushPayload } from '../shared/types';
 
 declare global {
@@ -29,12 +42,62 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+/** Same-origin paths that are data rather than app. Nothing serves these today
+ * — the relay lives on its own origin — but should it ever move under this one,
+ * this keeps its responses out of the cache instead of silently staling them. */
+const API_PATH = /^\/api\//;
+
+/** Everything the app is *made of*, as opposed to the data it talks to. */
+const isLocal = ({ sameOrigin, url }: RouteMatchCallbackOptions) =>
+	sameOrigin && !API_PATH.test(url.pathname);
+
+/** The webfont the whole UI is set in: remote, but shell, not data. */
+const isWebFont = ({ url }: RouteMatchCallbackOptions) =>
+	url.host === 'fonts.googleapis.com' || url.host === 'fonts.gstatic.com';
+
+/**
+ * Cache first, revalidate in the background: a cached copy answers straight
+ * away (offline included) while a fresh one is fetched for next time.
+ *
+ * Deliberately without an {@link ExpirationPlugin} — every entry here is part
+ * of the app itself, so an age limit would be a scheduled way to break offline.
+ * Outdated builds are dropped by `cleanupOutdatedCaches`, and the browser
+ * evicts the whole origin under storage pressure.
+ */
+const offlineFirst = [
+	{
+		matcher: isLocal,
+		handler: new StaleWhileRevalidate({ cacheName: 'local-assets' }),
+	},
+	{
+		matcher: isWebFont,
+		handler: new StaleWhileRevalidate({ cacheName: 'web-fonts' }),
+	},
+];
+
+/** Dev has no precache manifest, and Vite's modules change on every save, so
+ * the SW stays out of the way entirely — as Serwist's own `defaultCache` does. */
+const dev = import.meta.env.DEV;
+
 const serwist = new Serwist({
 	precacheEntries: self.__SW_MANIFEST,
+	precacheOptions: dev
+		? undefined
+		: {
+				cleanupOutdatedCaches: true,
+				// `/i/:address` and `/:handle` are client-side routes: any navigation
+				// the precache doesn't recognise is answered with the shell, which is
+				// also what the host's rewrite does when it is online.
+				navigateFallback: '/index.html',
+				navigateFallbackDenylist: [API_PATH],
+			},
 	skipWaiting: true,
 	clientsClaim: true,
-	navigationPreload: true,
-	runtimeCaching: defaultCache,
+	// No `navigationPreload`: navigations are answered from the precache, so a
+	// preloaded response would be fetched and then thrown away every time.
+	runtimeCaching: dev
+		? [{ matcher: /.*/i, handler: new NetworkOnly() }]
+		: offlineFirst,
 });
 
 serwist.addEventListeners();
