@@ -15,15 +15,15 @@ import { SyncStatus } from '../components/SyncStatus';
 import { useAuth } from '../services/auth';
 import { useConversations } from '../services/chat';
 import { CreateChatModal } from './CreateChatModal';
+import { ProfileModal } from './ProfileModal';
 import { RandomChatModal } from './RandomChatModal';
-import { SettingsModal } from './SettingsModal';
 
 export function ConversationsPage() {
 	const conversations = useConversations();
 	const { identity } = useAuth();
 	const [creating, setCreating] = useState(false);
 	const [matching, setMatching] = useState(false);
-	const [settings, setSettings] = useState(false);
+	const [profile, setProfile] = useState(false);
 
 	return (
 		<Page>
@@ -40,7 +40,7 @@ export function ConversationsPage() {
 						iconOnly
 						loading={!identity}
 						variant="transparent"
-						onClick={() => setSettings(true)}
+						onClick={() => setProfile(true)}
 					>
 						<SettingsIcon />
 					</Button>
@@ -101,7 +101,12 @@ export function ConversationsPage() {
 
 			{matching && <RandomChatModal onClose={() => setMatching(false)} />}
 
-			{settings && <SettingsModal onClose={() => setSettings(false)} />}
+			{profile && identity?.address && (
+				<ProfileModal
+					address={identity?.address}
+					onClose={() => setProfile(false)}
+				/>
+			)}
 		</Page>
 	);
 }
