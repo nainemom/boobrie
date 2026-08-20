@@ -103,7 +103,7 @@ export function ChatPage() {
 								onChange={(event) => setDraft(event.target.value)}
 								size={12}
 								placeholder="Type a message"
-								className="min-size-full"
+								className="min-size-full w-full"
 								onKeyDown={(e) => {
 									if (e.key === 'Enter' && !e.shiftKey) {
 										submit(e);

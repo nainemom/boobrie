@@ -1,5 +1,6 @@
 import { ChevronRightIcon, InfoIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
+import { twJoin } from 'tailwind-merge';
 import { tv, type VariantProps } from 'tailwind-variants';
 
 const formField = tv({
@@ -34,7 +35,7 @@ export const FormField: FC<
 						)}
 					</label>
 				)}
-				<div className="shrink">{children}</div>
+				<div className={twJoin(label ? 'shrink' : 'contents')}>{children}</div>
 			</div>
 			{error && (
 				<p
