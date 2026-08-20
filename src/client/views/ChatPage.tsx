@@ -123,7 +123,7 @@ export function ChatPage() {
 						onClick={submit}
 						className="self-end"
 					>
-						<SendIcon />
+						<SendIcon size={20} />
 					</Button>
 				}
 			/>
