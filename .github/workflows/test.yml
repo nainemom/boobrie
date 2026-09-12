@@ -1,0 +1,66 @@
+name: Test
+
+on:
+  push:
+    branches: [rc, master]
+  pull_request:
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: boobrie
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d boobrie"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate-types
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint:ci
+
+      - name: Run tests
+        env:
+          JWT_SECRET: test-only-insecure-secret
+          DB_POSTGRES_URL: postgresql://user:password@localhost:5432/boobrie
+          # config.ts keeps no defaults: anything this block leaves out is NaN
+          # or undefined, exactly as it would be without `.env` locally. The
+          # heartbeat is short here for the same reason it is short in `.env` —
+          # presence is three of them, and one test waits for one to land.
+          RELAY_PORT: 5200
+          RELAY_HOST: 127.0.0.1
+          RELAY_HEARTBEAT_MS: 2000
+          RELAY_CHALLENGE_TTL_MS: 120000
+          RELAY_SESSION_TTL_MS: 3600000
+        run: npm run test

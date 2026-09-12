@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-const port = +(process.env.CLIENT_PORT as `${number}`);
+const port = +(process.env.VITE_PORT as `${number}`);
 
 export default defineConfig({
 	server: {

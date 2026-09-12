@@ -21,11 +21,11 @@ import {
 import { editPushSubscriptionHandler, initPush } from './services/push.ts';
 import { getUserHandler, redirectUserHandler } from './services/user.ts';
 
-async function main() {
-	await initDb();
-	initPush();
-	await watchMessages();
-
+/** Build the app: every endpoint, its middleware, and how errors become
+ * responses. Separate from {@link main} so it can be built without opening a
+ * port or connecting anything — the tests serve it themselves, so what they
+ * exercise is this route table rather than a replica of it. */
+export function createApp(): H3 {
 	// Centralised error handling: every error — zod validation, an explicit
 	// HTTPError, an unmatched route, or something unexpected — becomes a
 	// `{ error }` JSON body with the right status.
@@ -78,12 +78,24 @@ async function main() {
 	app.get('/handles/:handle', redirectUserHandler('/users/:address'));
 	app.get('/users/:address', getUserHandler);
 
-	serve(app, { port: config.port, hostname: config.host });
+	return app;
+}
+
+async function main() {
+	await initDb();
+	initPush();
+	await watchMessages();
+
+	serve(createApp(), { port: config.port, hostname: config.host });
 
 	log('info', `relay listening on http://${config.host}:${config.port}`);
 }
 
-main().catch((err) => {
-	log('error', 'relay failed to start', err);
-	process.exit(1);
-});
+// Only when this file *is* the process — so importing `createApp` (the tests
+// do) never connects to anything or takes a port.
+if (import.meta.filename === process.argv[1]) {
+	main().catch((err) => {
+		log('error', 'relay failed to start', err);
+		process.exit(1);
+	});
+}

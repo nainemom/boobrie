@@ -34,13 +34,14 @@ import {
 	sendMessageSchema,
 } from '@/shared/protocol';
 import { sleep } from '@/shared/utils.ts';
+import { config } from '../config.ts';
 import { type PendingMessage, Prisma } from '../db/generated/client.ts';
 import { createListener, db } from '../db/index.ts';
 import { notify } from './push.ts';
 
 const CHANNEL = 'chat';
 /** How often to nudge each open stream so it flushes and stays visibly alive. */
-const HEARTBEAT_MS = 20_000;
+const HEARTBEAT_MS = config.heartbeatMs;
 /** How long a session counts as "online" without a heartbeat touching it. */
 const PRESENCE_TTL_MS = HEARTBEAT_MS * 3;
 
@@ -126,7 +127,11 @@ const resyncAll = async (): Promise<void> => {
 };
 
 let listener: ReturnType<typeof createListener> | null = null;
-let reconnecting = false;
+/** The reconnect loop, while one is running. Held rather than merely flagged so
+ * {@link stopWatching} can wait for it: a connect that finishes after a stop
+ * was asked for would otherwise install a client nobody holds a handle on. */
+let listening: Promise<void> | null = null;
+let stopped = false;
 
 const openListener = async (): Promise<void> => {
 	const client = createListener();
@@ -149,33 +154,66 @@ const openListener = async (): Promise<void> => {
 		throw err;
 	}
 
+	// A stop may have been asked for while the connect was in flight. Nothing
+	// would ever close this client if it were kept — `stopWatching` had already
+	// looked and found none — and a live one holds the process open for good.
+	if (stopped) {
+		await client.end().catch(() => {});
+		return;
+	}
+
 	listener = client;
 	await resyncAll();
 };
 
 /** Keep a live `LISTEN chat` connection, retrying with backoff. Idempotent: a
- * reconnect already in flight is a no-op. */
-const keepListening = async (): Promise<void> => {
-	if (reconnecting) return;
-	reconnecting = true;
-	try {
-		while (!listener) {
+ * reconnect already in flight is returned rather than started again, so every
+ * caller — and a stop — waits on the same attempt. */
+const keepListening = (): Promise<void> => {
+	if (listening) return listening;
+	const loop = async (): Promise<void> => {
+		while (!listener && !stopped) {
 			try {
 				await openListener();
-				log('info', 'chat listener connected');
+				// Not if the connect was thrown away by a stop that landed mid-flight.
+				if (listener) log('info', 'chat listener connected');
 			} catch (err) {
 				log('warn', 'chat listener connect failed; retrying', err);
 				await sleep(2000);
 			}
 		}
-	} finally {
-		reconnecting = false;
-	}
+	};
+	// Cleared through the chained `finally`, which runs in a microtask — so it
+	// cannot clear the slot before the assignment below fills it, as it would if
+	// the loop ran to completion without ever awaiting.
+	const running = loop().finally(() => {
+		if (listening === running) listening = null;
+	});
+	listening = running;
+	return running;
 };
 
 /** Establish (and thereafter maintain) the cross-pod `chat` subscription. */
 export const watchMessages = async (): Promise<void> => {
+	stopped = false;
 	await keepListening();
+};
+
+/** Give up the subscription and close its connection, without the reconnect
+ * that a connection dropping on its own would trigger. The one thing holding
+ * the process open once the server has stopped listening, so shutting down
+ * cleanly — or handing the process back to a test runner — needs it. */
+export const stopWatching = async (): Promise<void> => {
+	stopped = true;
+	// Before looking at `listener`: a reconnect in flight is about to set it, and
+	// it checks `stopped` on the way through, so waiting here is what makes the
+	// look below conclusive.
+	await listening;
+	const client = listener;
+	// Cleared first, so the `end` handler sees a client that is no longer the
+	// current one and doesn't try to reconnect it.
+	listener = null;
+	await client?.end().catch(() => {});
 };
 
 export const streamMessagesHandler = defineHandler(async (event) => {
