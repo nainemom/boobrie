@@ -28,6 +28,7 @@ import { fetch as nodeFetch } from 'node-fetch-native/node';
 import { ofetch } from 'ofetch';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { db as local, type StoredMessage } from '@/client/db';
+import { env } from '@/client/env';
 import { authState } from '@/client/services/auth';
 import {
 	type ConversationSummary,
@@ -47,14 +48,6 @@ import { testIdentity } from './crypto.ts';
 // --- talking to the relay ---------------------------------------------------
 
 /**
- * Where the relay is: the same value the client under test reads, resolved the
- * same way it resolves it, so the harness and the app are pointed at one relay
- * rather than two. `globalSetup` serves it there, and refuses to run if this
- * names somewhere it isn't.
- */
-const relayUrl = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
-
-/**
  * The same client the app talks to the relay with, configured for tests: bodies
  * and responses are JSON without anyone spelling it out, and a non-JSON body
  * (the HTML page a redirect carries) comes back as text on its own.
@@ -68,10 +61,14 @@ const relayUrl = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
  * run under, which logs every non-2xx response it sees — and a good many of
  * these requests are meant to come back 400 or 401. This is the harness, not
  * the app; the app's own requests still go through the browser's.
+ *
+ * Its `baseURL` is the client's own {@link env}, not a copy of it, so the
+ * harness and the app are pointed at one relay rather than two. `globalSetup`
+ * serves it there, and refuses to run if it names somewhere it isn't.
  */
 const api = ofetch.create(
 	{
-		baseURL: relayUrl,
+		baseURL: env.CLIENT_RELAY_URL,
 		headers: { 'content-type': 'application/json' },
 		ignoreResponseError: true,
 		retry: false,

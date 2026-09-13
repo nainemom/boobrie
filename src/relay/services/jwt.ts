@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { config } from '../config.ts';
+import { env } from '../env.ts';
 
 const base64url = (input: string): string =>
 	Buffer.from(input).toString('base64url');
 
 const hmac = (data: string): string =>
-	createHmac('sha256', config.jwtSecret).update(data).digest('base64url');
+	createHmac('sha256', env.RELAY_JWT_SECRET).update(data).digest('base64url');
 
 /** Sign a compact HS256 JWT that expires `ttlMs` from now. */
 export const signToken = (payload: object, ttlMs: number): string => {

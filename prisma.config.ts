@@ -1,7 +1,5 @@
-import 'dotenv/config';
 import { defineConfig } from 'prisma/config';
-
-const DB_URL = process.env.DB_POSTGRES_URL;
+import { env } from './src/relay/env';
 
 export default defineConfig({
 	schema: 'src/relay/db/schema.prisma',
@@ -9,6 +7,6 @@ export default defineConfig({
 		path: 'src/relay/db/migrations',
 	},
 	datasource: {
-		url: DB_URL,
+		url: env.RELAY_DB_URL,
 	},
 });

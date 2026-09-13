@@ -2,17 +2,16 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Client, Pool } from 'pg';
 import { log } from '@/shared/log.ts';
 import { sleep } from '@/shared/utils.ts';
-import { config } from '../config.ts';
+import { env } from '../env.ts';
 import { PrismaClient } from './generated/client.ts';
 
-if (!config.dbUrl) throw new Error('db config not found!');
-
-// Parsed here rather than where it is logged: a malformed URL should fail
-// alongside the guard above, not from inside the retry loop's error handler.
-const dbHost = new URL(config.dbUrl).host;
+// The host on its own, for the "waiting for the database" line below. A
+// connection string carries the password with it, and that has no business in
+// a log. Set and well-formed is `env.ts`'s business, not this file's.
+const dbHost = new URL(env.RELAY_DB_URL).host;
 
 const pool = new Pool({
-	connectionString: config.dbUrl,
+	connectionString: env.RELAY_DB_URL,
 });
 export const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -21,7 +20,7 @@ export const db = new PrismaClient({ adapter: new PrismaPg(pool) });
  * open, and a `Client` can't be reused once its connection has ended. */
 export const createListener = (): Client =>
 	new Client({
-		connectionString: config.dbUrl,
+		connectionString: env.RELAY_DB_URL,
 	});
 
 /** Let go of the pool. The relay itself never needs this — the process ends and

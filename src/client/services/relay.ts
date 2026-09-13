@@ -1,4 +1,5 @@
 import { type FetchHook, ofetch } from 'ofetch';
+import { env } from '@/client/env';
 import type {
 	EditDiscoverableRequest,
 	EditHandleRequest,
@@ -11,8 +12,6 @@ import type {
 	UserResponse,
 } from '@/shared/protocol';
 import { authState, restore } from './auth';
-
-const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
 
 /** Attach the current session token (if any) as a `Bearer` header, so every
  * relay call carries auth without each endpoint threading the token itself. */
@@ -35,7 +34,7 @@ const restoreOn401: FetchHook = async ({ response }) => {
 };
 
 const api = ofetch.create({
-	baseURL: RELAY_URL,
+	baseURL: env.CLIENT_RELAY_URL,
 	headers: { 'content-type': 'application/json' },
 	onRequest: [attachToken],
 	onResponseError: [restoreOn401],
@@ -49,7 +48,7 @@ const api = ofetch.create({
  * a 401 in place (via `restoreOn401`, same as `api`) — any other failure is
  * {@link streamMessages}'s own job to reconnect from, not a request-level retry. */
 const streamApi = ofetch.create({
-	baseURL: RELAY_URL,
+	baseURL: env.CLIENT_RELAY_URL,
 	onRequest: [attachToken],
 	onResponseError: [restoreOn401],
 	retry: 3,

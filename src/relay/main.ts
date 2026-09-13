@@ -1,7 +1,7 @@
 import { H3, handleCors, serve } from 'h3';
 import { log } from '@/shared/log.ts';
-import { config } from './config.ts';
 import { initDb } from './db/index.ts';
+import { env } from './env.ts';
 import {
 	challengeHandler,
 	editDiscoverableHandler,
@@ -45,7 +45,7 @@ export function createApp(): H3 {
 	// CORS for every route; preflight requests are answered here and stop.
 	app.use((event) => {
 		const cors = handleCors(event, {
-			origin: config.corsOrigin,
+			origin: env.RELAY_CORS_ORIGIN,
 			methods: '*',
 		});
 		if (cors !== false) return cors;
@@ -86,9 +86,9 @@ async function main() {
 	initPush();
 	await watchMessages();
 
-	serve(createApp(), { port: config.port, hostname: config.host });
+	serve(createApp(), { port: env.RELAY_PORT, hostname: env.RELAY_HOST });
 
-	log('info', `relay listening on http://${config.host}:${config.port}`);
+	log('info', `relay listening on http://${env.RELAY_HOST}:${env.RELAY_PORT}`);
 }
 
 // Only when this file *is* the process — so importing `createApp` (the tests

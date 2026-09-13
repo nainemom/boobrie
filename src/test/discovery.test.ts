@@ -15,6 +15,7 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 import { closeDb, db } from '@/relay/db/index.ts';
+import { env } from '@/relay/env.ts';
 import type {
 	MeResponse,
 	PresenceResponse,
@@ -30,7 +31,7 @@ afterAll(closeDb);
 
 /** How long a connection counts as online without being touched: three
  * heartbeats, whatever the relay under test was told a heartbeat is. */
-const presenceTtlMs = () => 3 * Number(process.env.RELAY_HEARTBEAT_MS);
+const presenceTtlMs = () => 3 * env.RELAY_HEARTBEAT_MS;
 
 /** Longer than the presence window, by any reading of it. */
 const LONG_AGO_MS = 5 * 60_000;

@@ -19,8 +19,8 @@ import {
 	verifySchema,
 } from '@/shared/protocol';
 import type { AuthClaims, Role } from '@/shared/types';
-import { config } from '../config.ts';
 import { db } from '../db/index.ts';
+import { env } from '../env.ts';
 import { signToken, verifyToken } from './jwt.ts';
 import { getSubscription, vapidPublicKey } from './push.ts';
 
@@ -94,7 +94,7 @@ export const challengeHandler = defineHandler(async (event) => {
 		nonceHash: bytesToBase58(sha256(nonce)),
 	};
 	return {
-		challengeToken: signToken(claims, config.challengeTtlMs),
+		challengeToken: signToken(claims, env.RELAY_CHALLENGE_TTL_MS),
 		box,
 	} satisfies ChallengeResponse;
 });
@@ -155,8 +155,8 @@ export const verifyHandler = defineHandler(async (event) => {
 	}
 
 	return {
-		token: signToken({ address: claims.address }, config.sessionTtlMs),
-		expiresAt: Date.now() + config.sessionTtlMs,
+		token: signToken({ address: claims.address }, env.RELAY_SESSION_TTL_MS),
+		expiresAt: Date.now() + env.RELAY_SESSION_TTL_MS,
 		created: inserted.count > 0,
 	} satisfies VerifyResponse;
 });

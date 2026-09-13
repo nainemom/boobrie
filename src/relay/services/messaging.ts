@@ -34,16 +34,14 @@ import {
 	sendMessageSchema,
 } from '@/shared/protocol';
 import { sleep } from '@/shared/utils.ts';
-import { config } from '../config.ts';
 import { type PendingMessage, Prisma } from '../db/generated/client.ts';
 import { createListener, db } from '../db/index.ts';
+import { env } from '../env.ts';
 import { notify } from './push.ts';
 
 const CHANNEL = 'chat';
-/** How often to nudge each open stream so it flushes and stays visibly alive. */
-const HEARTBEAT_MS = config.heartbeatMs;
 /** How long a session counts as "online" without a heartbeat touching it. */
-const PRESENCE_TTL_MS = HEARTBEAT_MS * 3;
+const PRESENCE_TTL_MS = env.RELAY_HEARTBEAT_MS * 3;
 
 const connections = new Map<string, ReturnType<typeof createEventStream>>();
 
@@ -240,7 +238,7 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 			.catch((err) =>
 				log('warn', 'session heartbeat touch failed', address, err),
 			);
-	}, HEARTBEAT_MS);
+	}, env.RELAY_HEARTBEAT_MS);
 
 	stream.onClosed(async () => {
 		clearInterval(heartbeat);

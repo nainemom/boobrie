@@ -9,6 +9,18 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
+
+    env:
+      RELAY_JWT_SECRET: test-only-insecure-secret
+      RELAY_DB_URL: postgresql://user:password@localhost:5432/boobrie
+      RELAY_PORT: 5200
+      RELAY_HOST: 127.0.0.1
+      RELAY_HEARTBEAT_MS: 2000
+      RELAY_CHALLENGE_TTL_MS: 120000
+      RELAY_SESSION_TTL_MS: 3600000
+      CLIENT_RELAY_URL: http://localhost:5200
+      CLIENT_PORT: 5100
+
     strategy:
       matrix:
         node-version: [24.x]
@@ -51,16 +63,4 @@ jobs:
         run: npm run lint:ci
 
       - name: Run tests
-        env:
-          JWT_SECRET: test-only-insecure-secret
-          DB_POSTGRES_URL: postgresql://user:password@localhost:5432/boobrie
-          # config.ts keeps no defaults: anything this block leaves out is NaN
-          # or undefined, exactly as it would be without `.env` locally. The
-          # heartbeat is short here for the same reason it is short in `.env` —
-          # presence is three of them, and one test waits for one to land.
-          RELAY_PORT: 5200
-          RELAY_HOST: 127.0.0.1
-          RELAY_HEARTBEAT_MS: 2000
-          RELAY_CHALLENGE_TTL_MS: 120000
-          RELAY_SESSION_TTL_MS: 3600000
         run: npm run test

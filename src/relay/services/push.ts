@@ -6,25 +6,32 @@ import {
 	editPushSubscriptionSchema,
 } from '@/shared/protocol.ts';
 import type { PushPayload, PushSubscriptionJson } from '@/shared/types';
-import { config } from '../config.ts';
 import { db } from '../db/index.ts';
+import { env } from '../env.ts';
 
 const { sendNotification, setVapidDetails, WebPushError } = webPush;
 
 let enabled = false;
 
 export const initPush = (): void => {
-	if (!config.vapid) return;
+	// All three or nothing: half a VAPID pair signs nothing, so push stays off.
+	if (
+		!env.RELAY_VAPID_SUBJECT ||
+		!env.RELAY_VAPID_PUBLIC_KEY ||
+		!env.RELAY_VAPID_PRIVATE_KEY
+	) {
+		return;
+	}
 	setVapidDetails(
-		config.vapid.subject,
-		config.vapid.publicKey,
-		config.vapid.privateKey,
+		env.RELAY_VAPID_SUBJECT,
+		env.RELAY_VAPID_PUBLIC_KEY,
+		env.RELAY_VAPID_PRIVATE_KEY,
 	);
 	enabled = true;
 };
 
 export const vapidPublicKey = (): string | null =>
-	enabled ? (config.vapid?.publicKey ?? null) : null;
+	enabled ? (env.RELAY_VAPID_PUBLIC_KEY ?? null) : null;
 
 export const saveSubscription = async (
 	address: string,

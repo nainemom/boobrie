@@ -1,5 +1,6 @@
 import { ofetch } from 'ofetch';
 import { db } from '@/client/db';
+import { env } from '@/client/env';
 import { clearLocalKeyCache } from '@/client/services/chat';
 import { unsubscribeFromPush } from '@/client/services/push';
 import { editPushSubscription } from '@/client/services/relay';
@@ -37,10 +38,8 @@ export const useAuth = () => useExternalState(authState);
 
 // --- relay handshake ------------------------------------------------------
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL ?? 'http://localhost:5200';
-
 const api = ofetch.create({
-	baseURL: RELAY_URL,
+	baseURL: env.CLIENT_RELAY_URL,
 	headers: { 'content-type': 'application/json' },
 	retry: 3,
 	retryDelay: 3000,
