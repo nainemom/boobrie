@@ -44,7 +44,7 @@
 		"dexie": "^4.4.4",
 		"dexie-react-hooks": "^4.4.0",
 		"dotenv": "^17.4.2",
-		"h3": "^2.0.1-rc.25",
+		"h3": "^2.0.1-rc.31",
 		"lucide-react": "^1.26.0",
 		"ofetch": "^1.5.1",
 		"pg": "^8.22.0",
@@ -88,6 +88,8 @@
 		"lefthook@2.1.10": true,
 		"esbuild@0.28.1": true,
 		"esbuild@0.18.20": true,
-		"esbuild@0.25.12": true
+		"esbuild@0.25.12": true,
+		"prisma@7.9.0": true,
+		"@prisma/engines@7.9.0": true
 	}
 }

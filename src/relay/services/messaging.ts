@@ -21,6 +21,7 @@ import {
 	createEventStream,
 	defineHandler,
 	getValidatedRouterParams,
+	onDispose,
 	readValidatedBody,
 } from 'h3';
 import { log } from '@/shared/log';
@@ -240,7 +241,7 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 			);
 	}, env.RELAY_HEARTBEAT_MS);
 
-	stream.onClosed(async () => {
+	onDispose(event, async () => {
 		clearInterval(heartbeat);
 		connections.delete(address);
 		await db.session.deleteMany({ where: { id: session.id } });
