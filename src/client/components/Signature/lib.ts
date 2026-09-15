@@ -276,7 +276,7 @@ function fitToFrame(strokes: Stroke[], genes: Genes): string {
 		}
 	}
 
-	const pad = genes.weight / 2 + 3; // half the nib, plus a little breathing room
+	const pad = genes.weight / 2 + 5; // half the nib, plus a little breathing room
 	const availW = VIEW_W - pad * 2;
 	const availH = VIEW_H - pad * 2;
 	const scale = Math.min(
