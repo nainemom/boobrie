@@ -1,7 +1,8 @@
 /**
  * The user service: everything about *who you are on the relay* — your profile
- * (handle, membership, VAPID key) and this device's Web Push wiring. The relay
- * calls it drives live in {@link file://./relay.ts}.
+ * (handle, discoverability, VAPID key) and this device's Web Push wiring. The
+ * relay calls it drives live in {@link file://./relay.ts}. A handle is claimed
+ * once at sign-up and never edited, so it is read here but never written.
  *
  * Identity and session (the mnemonic-derived key pair and its relay token) live
  * in the auth service ({@link file://./auth.ts}); this service *reacts* to it,
@@ -24,12 +25,7 @@ import {
 	subscribeToPush,
 	unsubscribeFromPush,
 } from './push';
-import {
-	editPushSubscription,
-	getMe,
-	setDiscoverable,
-	updateHandle,
-} from './relay';
+import { editPushSubscription, getMe, setDiscoverable } from './relay';
 
 // --- reactive profile & push state -----------------------------------------
 
@@ -137,12 +133,6 @@ authState.subscribe(syncFromAuth);
 syncFromAuth();
 
 // --- actions ---------------------------------------------------------------
-
-export async function changeHandle(handle: string): Promise<void> {
-	const res = await updateHandle({ handle });
-	const { me } = userState.state;
-	userState.patch({ me: me ? { ...me, handle: res.handle } : me });
-}
 
 export async function changeDiscoverable(discoverable: boolean): Promise<void> {
 	const res = await setDiscoverable({ discoverable });

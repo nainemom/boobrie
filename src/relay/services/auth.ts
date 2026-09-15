@@ -11,9 +11,7 @@ import {
 	type ChallengeResponse,
 	challengeSchema,
 	type EditDiscoverableResponse,
-	type EditHandleResponse,
 	editDiscoverableSchema,
-	editHandleSchema,
 	type MeResponse,
 	type VerifyResponse,
 	verifySchema,
@@ -165,26 +163,6 @@ export const getMeHandler = defineHandler(async (event) => {
 	const me = await buildMe(event.context.claim?.address || '');
 	if (!me) throw new HTTPError({ status: 404, message: 'user not found' });
 	return me;
-});
-
-export const editHandleHandler = defineHandler(async (event) => {
-	const address = event.context.claim?.address || '';
-	const { handle } = await readValidatedBody(event, editHandleSchema);
-
-	if (handle !== null) {
-		const existing = await db.user.findUnique({
-			where: { handle },
-			select: { address: true },
-		});
-		if (existing && existing.address !== address) {
-			throw new HTTPError({ status: 409, message: 'handle already taken' });
-		}
-	}
-	await db.user.update({ where: { address }, data: { handle } });
-
-	return {
-		handle,
-	} satisfies EditHandleResponse;
 });
 
 export const editDiscoverableHandler = defineHandler(async (event) => {

@@ -13,7 +13,6 @@ import { RESERVED_HANDLES } from '@/shared/constants.ts';
 import {
 	challengeSchema,
 	editDiscoverableSchema,
-	editHandleSchema,
 	handleSchema,
 	pushSubscriptionSchema,
 	randomMatchSchema,
@@ -57,12 +56,6 @@ describe('what makes a usable handle', () => {
 
 	it('allows a reserved word as part of a longer handle', () => {
 		expect(handleSchema.parse('admin-tools')).toBe('admin-tools');
-	});
-
-	it('allows clearing a handle but not blanking it', () => {
-		expect(editHandleSchema.parse({ handle: null }).handle).toBeNull();
-		expect(editHandleSchema.safeParse({ handle: '' }).success).toBe(false);
-		expect(editHandleSchema.safeParse({}).success).toBe(false);
 	});
 });
 

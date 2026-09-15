@@ -32,7 +32,8 @@ export interface ChallengeResponse {
 
 /** A validated handle: lowercase, starts/ends alphanumeric, single
  * hyphen/underscore separators, and not on the reserved list. Shared so the
- * client validates a handle the exact same way the relay enforces it. */
+ * client validates a handle the exact same way the relay enforces it. A handle
+ * is claimed once, on sign-up, and there is no endpoint to change it after. */
 export const handleSchema = z
 	.string()
 	.trim()
@@ -97,15 +98,6 @@ export type EditPushSubscriptionRequest = z.infer<
 
 /** `PUT /auth/me/push-subscription` reply. */
 export type EditPushSubscriptionResponse = EditPushSubscriptionRequest;
-
-/** `PUT /auth/me/handle` body. */
-export const editHandleSchema = z.object({
-	handle: handleSchema.nullable(),
-});
-export type EditHandleRequest = z.infer<typeof editHandleSchema>;
-
-/** `PUT /auth/me/handle` reply. */
-export type EditHandleResponse = EditHandleRequest;
 
 /** `PATCH /auth/me/discoverable` body — opt in or out of random chat. */
 export const editDiscoverableSchema = z.object({

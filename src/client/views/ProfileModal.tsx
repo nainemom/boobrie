@@ -1,30 +1,24 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { LogOutIcon, SaveIcon } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { LogOutIcon } from 'lucide-react';
+import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { twJoin } from 'tailwind-merge';
-import { z } from 'zod';
-import { handleSchema } from '@/shared/protocol';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Divider } from '../components/Divider';
-import { Form } from '../components/Form';
 import { FormActions } from '../components/FormActions';
 import { FormField } from '../components/FormField';
-import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
 import { Signature } from '../components/Signature';
 import { Toggle } from '../components/Toggle';
 import { logout } from '../services/auth';
+import { getUser } from '../services/relay';
 import {
 	changeDiscoverable,
-	changeHandle,
 	disablePush,
 	subscribeDevice,
 	useUser,
 } from '../services/user';
 import { truncateAddress } from '../utils/address';
-import { errorMessage } from '../utils/errors';
 import { useCopyToClipboard } from '../utils/useCopyToClipboard';
 
 function pushDescription(
@@ -50,9 +44,6 @@ function pushDescription(
 	return 'Get notified about new messages on this device.';
 }
 
-const handleFormSchema = z.object({ handle: handleSchema });
-type HandleForm = z.infer<typeof handleFormSchema>;
-
 export function ProfileModal({
 	address,
 	onClose,
@@ -64,27 +55,17 @@ export function ProfileModal({
 
 	const isMe = address === user.identity?.address;
 
-	const {
-		register,
-		handleSubmit,
-		setError,
-		formState: { errors, isDirty },
-	} = useForm<HandleForm>({
-		resolver: zodResolver(handleFormSchema),
-		// `values` (not `defaultValues`) so the field picks up the handle once the
-		// profile finishes loading, and syncs again after a successful save.
-		values: { handle: user.me?.handle ?? '' },
+	// Your own profile is already in the user service; somebody else's has to
+	// come from the relay. Either way the handle is only ever displayed — it's
+	// claimed once, at sign-up, and there's no endpoint to change it after.
+	const peer = useSWR(isMe ? null : `user-${address}`, () => getUser(address), {
+		revalidateOnFocus: false,
+		revalidateOnReconnect: false,
+		shouldRetryOnError: false,
 	});
 
 	const [DynamicCopyIcon, copyToClipboard] = useCopyToClipboard();
 
-	const handleMutation = useSWRMutation(
-		'settings/handle',
-		async (_key: string, { arg }: { arg: string }) => {
-			await changeHandle(arg);
-			return true;
-		},
-	);
 	const discoverableMutation = useSWRMutation(
 		'settings/discoverable',
 		(_key: string, { arg }: { arg: boolean }) => changeDiscoverable(arg),
@@ -93,19 +74,12 @@ export function ProfileModal({
 	// Nothing to show without an identity — the gate modal is covering us anyway.
 	if (!user.identity || !user.session) return null;
 
-	const profile = user.me;
-
-	const submitHandle = async ({ handle }: HandleForm) => {
-		try {
-			await handleMutation.trigger(handle);
-		} catch (err) {
-			setError('handle', { type: 'manual', message: errorMessage(err) });
-		}
-	};
+	const me = user.me;
+	const handle = (isMe ? me : peer.data)?.handle ?? null;
 
 	const toggleDiscoverable = () => {
-		if (!profile) return;
-		void discoverableMutation.trigger(!profile.discoverable, {
+		if (!me) return;
+		void discoverableMutation.trigger(!me.discoverable, {
 			throwOnError: false,
 		});
 	};
@@ -144,42 +118,29 @@ export function ProfileModal({
 					</div>
 				</FormField>
 
-				{isMe ? (
-					<>
-						<Form onSubmit={handleSubmit(submitHandle)} className="contents">
-							<FormField
-								label="Handle"
-								htmlFor="handle"
-								error={errors.handle?.message}
-								success={
-									handleMutation.data === true && !isDirty
-										? 'Handle successfully updated'
-										: null
-								}
-							>
-								<div className="flex items-start gap-2">
-									<Input
-										id="handle"
-										className="grow"
-										placeholder="No handle set"
-										disabled={!profile}
-										size={8}
-										{...register('handle')}
-									/>
-									<Button
-										type="submit"
-										className="shrink-0"
-										loading={handleMutation.isMutating}
-										disabled={!isDirty}
-										size={8}
-										iconOnly
-									>
-										<SaveIcon size={14} />
-									</Button>
-								</div>
-							</FormField>
-						</Form>
+				<FormField
+					label="Handle"
+					htmlFor="copy-handle"
+					info="Chosen once at sign-up, and fixed for the life of the account."
+				>
+					<div className="flex items-center gap-1">
+						<p className="text-sm text-neutral-500 shrink">{handle ?? '---'}</p>
+						<Button
+							id="copy-handle"
+							variant="transparent"
+							size={8}
+							onClick={() => copyToClipboard(handle ?? '')}
+							iconOnly
+							className="shrink-0"
+							disabled={!handle}
+						>
+							<DynamicCopyIcon size={14} />
+						</Button>
+					</div>
+				</FormField>
 
+				{isMe && (
+					<>
 						<FormField
 							label="Push notifications"
 							htmlFor="push"
@@ -187,7 +148,7 @@ export function ProfileModal({
 							info={pushDescription(
 								user.permission,
 								subscribed,
-								user.me?.vapidPublicKey,
+								me?.vapidPublicKey,
 							)}
 						>
 							<Toggle
@@ -201,44 +162,25 @@ export function ProfileModal({
 									(!subscribed &&
 										(user.permission === 'denied' ||
 											user.permission === 'unsupported' ||
-											!user.me?.vapidPublicKey))
+											!me?.vapidPublicKey))
 								}
 							/>
 						</FormField>
 
-						{profile && (
+						{me && (
 							<FormField
 								label="Discoverable"
 								error={discoverableMutation.error?.message}
 								info="When on, others can be matched with you in “Talk to a stranger”. Turn it off to stay out of the pool."
 							>
 								<Toggle
-									checked={profile.discoverable}
+									checked={me.discoverable}
 									disabled={discoverableMutation.isMutating}
 									onChange={toggleDiscoverable}
 								/>
 							</FormField>
 						)}
 					</>
-				) : (
-					<FormField label="Handle" htmlFor="copy-handle">
-						<div className="flex items-center gap-1">
-							<p className="text-sm text-neutral-500 shrink">
-								{profile?.handle ?? '---'}
-							</p>
-							<Button
-								id="copy-handle"
-								variant="transparent"
-								size={8}
-								onClick={() => copyToClipboard(profile?.handle ?? '')}
-								iconOnly
-								className="shrink-0"
-								disabled={!profile?.handle}
-							>
-								<DynamicCopyIcon size={14} />
-							</Button>
-						</div>
-					</FormField>
 				)}
 
 				<Divider />

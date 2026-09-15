@@ -2,7 +2,6 @@ import { type FetchHook, ofetch } from 'ofetch';
 import { env } from '@/client/env';
 import type {
 	EditDiscoverableRequest,
-	EditHandleRequest,
 	EditPushSubscriptionRequest,
 	MeResponse,
 	Message,
@@ -183,12 +182,6 @@ export const streamMessages = (
 };
 
 export const getMe = () => api<MeResponse>('/auth/me');
-
-export const updateHandle = (body: EditHandleRequest) =>
-	api('/auth/me/handle', {
-		method: 'PATCH',
-		body,
-	});
 
 export const setDiscoverable = (body: EditDiscoverableRequest) =>
 	api('/auth/me/discoverable', {

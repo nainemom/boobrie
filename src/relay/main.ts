@@ -5,7 +5,6 @@ import { env } from './env.ts';
 import {
 	challengeHandler,
 	editDiscoverableHandler,
-	editHandleHandler,
 	getMeHandler,
 	requireAuth,
 	verifyHandler,
@@ -54,16 +53,10 @@ export function createApp(): H3 {
 	app.post('/auth/challenge', challengeHandler);
 	app.post('/auth/verify', verifyHandler);
 	app.get('/auth/me', getMeHandler, { middleware: [requireAuth] });
-	app.patch('/auth/me/handle', editHandleHandler, {
-		middleware: [requireAuth],
-	});
 	app.patch('/auth/me/discoverable', editDiscoverableHandler, {
 		middleware: [requireAuth],
 	});
 	app.put('/auth/me/push-subscription', editPushSubscriptionHandler, {
-		middleware: [requireAuth],
-	});
-	app.put('/auth/me/handle', editPushSubscriptionHandler, {
 		middleware: [requireAuth],
 	});
 	app.get('/messages', streamMessagesHandler, { middleware: [requireAuth] });
