@@ -1,13 +1,21 @@
-import { createAvatar } from '@dicebear/core';
-import * as notionists from '@dicebear/notionists';
+import {
+	Avatar as DicebearAvatar,
+	Style as DicebearStyle,
+} from '@dicebear/core';
+import definition from '@dicebear/styles/notionists.json' with { type: 'json' };
 import type { FC } from 'react';
 import { GeneratedSvg } from './GeneratedSvg';
 
 function generateAvatar(address: string): string {
-	return createAvatar(notionists, { seed: address, size: 18 }).toString();
+	return new DicebearAvatar(new DicebearStyle(definition), {
+		backgroundColor: ['ffffff00'],
+		seed: address,
+	}).toString();
 }
 
-export const Avatar: FC<{ address: string; className?: string }> = ({
-	address,
-	className,
-}) => <GeneratedSvg svg={generateAvatar(address)} className={className} />;
+export const Avatar: FC<{
+	address: string;
+	className?: string;
+}> = ({ address, className }) => (
+	<GeneratedSvg svg={generateAvatar(address)} className={className} />
+);

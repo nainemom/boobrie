@@ -31,9 +31,8 @@
 		"start:relay": "tsx src/relay/main.ts"
 	},
 	"dependencies": {
-		"@dicebear/core": "^9.4.3",
-		"@dicebear/notionists": "^9.4.2",
-		"@dicebear/styles": "^10.2.0",
+		"@dicebear/core": "^10.7.0",
+		"@dicebear/styles": "^10.6.0",
 		"@hookform/resolvers": "^5.4.0",
 		"@noble/curves": "^2.2.0",
 		"@prisma/adapter-pg": "^7.9.0",
