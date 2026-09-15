@@ -9,7 +9,6 @@
  *          are answered from the cache whenever there is a copy, and refreshed
  *          in the background for the next load. Offline is the normal case, not
  *          a fallback.
- *        · Google Fonts get the same treatment — remote, but part of the shell.
  *        · everything else — the relay's API and its message stream — is not
  *          routed at all, so it goes straight to the network, untouched and
  *          uncached. No connection means no answer, which is what we want:
@@ -51,10 +50,6 @@ const API_PATH = /^\/api\//;
 const isLocal = ({ sameOrigin, url }: RouteMatchCallbackOptions) =>
 	sameOrigin && !API_PATH.test(url.pathname);
 
-/** The webfont the whole UI is set in: remote, but shell, not data. */
-const isWebFont = ({ url }: RouteMatchCallbackOptions) =>
-	url.host === 'fonts.googleapis.com' || url.host === 'fonts.gstatic.com';
-
 /**
  * Cache first, revalidate in the background: a cached copy answers straight
  * away (offline included) while a fresh one is fetched for next time.
@@ -68,10 +63,6 @@ const offlineFirst = [
 	{
 		matcher: isLocal,
 		handler: new StaleWhileRevalidate({ cacheName: 'local-assets' }),
-	},
-	{
-		matcher: isWebFont,
-		handler: new StaleWhileRevalidate({ cacheName: 'web-fonts' }),
 	},
 ];
 
@@ -113,9 +104,14 @@ self.addEventListener('push', (event) => {
 	}
 
 	event.waitUntil(
-		self.registration.showNotification('boobrie', {
+		self.registration.showNotification('Boobrie', {
 			body: 'You have a new message.',
-			icon: '/favicon.svg',
+			// One of the icons unplugin-favicons renders from `public/logo.svg` (see
+			// `vite.config.ts`), picked because notification icons want a bitmap —
+			// Chrome ignores an SVG here — and because the precache covers it, so
+			// the notification still draws with no network. Moving the generator's
+			// `outputPath` means moving this too.
+			icon: '/favicons/android-chrome-192x192.png',
 			data: payload,
 		}),
 	);

@@ -8,7 +8,8 @@
 	"files": {
 		"includes": [
 			"**",
-			"!public",
+			"!src/arts",
+			"!src/client/public",
 			"!package.json",
 			"!package-lock.json",
 			"!src/relay/db/migrations"

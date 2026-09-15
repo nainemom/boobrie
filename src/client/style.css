@@ -1,6 +1,56 @@
 @import "tailwindcss";
 
+/* Noto Sans and Noto Sans Mono, self-hosted as Google's `latin` subset.
+ *
+ * These are the variable `wght` files: one download covers the whole 100–900
+ * range, instead of a request per weight. Despite what the upstream filenames
+ * suggested, `fvar` in both declares a `wght` axis and nothing else — so there
+ * is no `font-stretch` here, because there is no width axis to vary.
+ *
+ * `unicode-range` is what makes shipping a single subset safe. It tells the
+ * browser which characters the file claims *before* fetching it, so a message
+ * written entirely in Cyrillic or Greek falls straight through to the system
+ * stack rather than pulling down a 35 kB font that couldn't draw a word of it.
+ * Only the latin subset is shipped, so every other script is a fallback —
+ * deliberately, since the service worker precaches whatever is in `dist` and
+ * the rest of the subsets would be install weight paid by everyone.
+ *
+ * `swap` over the default `block`: text is readable in the fallback face from
+ * the first paint and upgrades when the font lands. After the first visit the
+ * question is moot — the SW has it precached, so it is there before first
+ * paint. */
+@font-face {
+	font-family: "Noto Sans";
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url("/fonts/noto-sans-latin.woff2") format("woff2");
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+		U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+		U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Noto Sans Mono";
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url("/fonts/noto-sans-mono-latin.woff2") format("woff2");
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+		U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+		U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @theme {
+	--font-sans:
+		"Noto Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	--font-mono:
+		"Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", "Courier New", monospace;
+
 	--color-primary: #171717;
 	--color-primary-hover: #262626;
 	--color-primary-active: #0a0a0a;
@@ -12,11 +62,6 @@
 		@apply select-none;
 	}
 
-	html {
-		font-family: "Baloo 2", sans-serif;
-		font-optical-sizing: auto;
-		font-style: normal;
-	}
 	body {
 		@apply bg-neutral-700 sm:p-6;
 	}

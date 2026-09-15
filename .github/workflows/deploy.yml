@@ -16,6 +16,10 @@ jobs:
     name: release
     if: ${{ !contains(github.event.head_commit.message, 'ci-skip') }}
     runs-on: ubuntu-latest
+
+    env:
+      CLIENT_PUBLIC_URL: ${{ vars.CLIENT_PUBLIC_URL }}
+
     strategy:
       matrix:
         node-version: [24.18.x]

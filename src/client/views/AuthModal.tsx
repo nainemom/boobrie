@@ -88,18 +88,19 @@ const CAROUSEL_SLIDES: CarouselSlide[] = [
 	{
 		title: 'No Personal Data Access',
 		description:
-			'Boobrie never asks for your phone or contacts. No device permissions are required.',
+			'Boobrie never asks for your phone or contacts. No device permissions needed.',
 		icon: PhoneOffIcon,
 	},
 	{
 		title: 'Privacy Matters',
 		description:
-			'We may collect anonymous usage analytics, but never your personal info or conversations.',
+			'We may collect anonymous usage analytics, but never your personal data.',
 		icon: EyeOffIcon,
 	},
 	{
-		title: 'Free Forever',
-		description: 'Core features, including random chat, are free forever.',
+		title: 'Free to Use',
+		description:
+			'Core features, including random chat and encryption, are free.',
 		icon: GiftIcon,
 	},
 ];
