@@ -20,10 +20,8 @@ jobs:
     if: ${{ !contains(github.event.head_commit.message, 'ci-skip') }}
     runs-on: ubuntu-latest
 
-    # Records the run under the repo's Environments tab and surfaces the live
-    # URL on the job once Pages hands it back.
     environment:
-      name: github-pages
+      name: production
       url: ${{ steps.deploy.outputs.page_url }}
 
     env:
