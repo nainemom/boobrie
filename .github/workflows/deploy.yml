@@ -29,6 +29,7 @@ jobs:
       CLIENT_RELAY_URL: ${{ vars.CLIENT_RELAY_URL }}
       RELAY_DB_URL: postgresql://unused:unused@localhost:5432/unused
       RELAY_JWT_SECRET: unused
+      LEFTHOOK: '0'
 
     steps:
       - name: Checkout
