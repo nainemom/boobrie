@@ -18,15 +18,12 @@ import {
 } from '../services/chat';
 import { truncateAddress } from '../utils/address';
 import { errorMessage } from '../utils/errors';
-import { ProfileModal } from './ProfileModal';
 
 export function ChatPage() {
 	const { address } = useParams<{ address: string }>();
 	const messages = useMessages(address);
 	const sendMessage = useSendMessage();
 	const markRead = useMarkConversationRead();
-
-	const [profile, setProfile] = useState(false);
 
 	const [draft, setDraft] = useState('');
 	const [sendError, setSendError] = useState<string | null>(null);
@@ -58,21 +55,26 @@ export function ChatPage() {
 		<Page>
 			<Navbar
 				middle={
-					<Button
-						variant="transparent"
-						size={12}
-						className="flex w-full gap-2 items-center px-0 text-start font-normal normal-case"
-						onClick={() => setProfile(true)}
+					<Link
+						href={`/profile/${address}`}
+						aria-label="View profile"
+						className="contents"
 					>
-						<Avatar
-							address={address}
-							className="size-12 overflow-hidden rounded-md"
-						/>
-						<p className="min-w-0 grow font-normal text-xl text-neutral-800">
-							{truncateAddress(address)}
-						</p>
-						<Signature address={address} className="size-16" />
-					</Button>
+						<Button
+							variant="transparent"
+							size={12}
+							className="flex w-full gap-2 items-center px-0 text-start font-normal normal-case"
+						>
+							<Avatar
+								address={address}
+								className="size-12 overflow-hidden rounded-md"
+							/>
+							<p className="min-w-0 grow font-normal text-xl text-neutral-800">
+								{truncateAddress(address)}
+							</p>
+							<Signature address={address} className="size-16" />
+						</Button>
+					</Link>
 				}
 				start={
 					<Link
@@ -135,10 +137,6 @@ export function ChatPage() {
 					</Button>
 				}
 			/>
-
-			{profile && (
-				<ProfileModal address={address} onClose={() => setProfile(false)} />
-			)}
 		</Page>
 	);
 }

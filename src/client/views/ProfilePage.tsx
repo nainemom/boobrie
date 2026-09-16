@@ -1,13 +1,13 @@
-import { LogOutIcon } from 'lucide-react';
+import { ChevronLeftIcon, LogOutIcon } from 'lucide-react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import { twJoin } from 'tailwind-merge';
+import { Link, useParams } from 'wouter';
 import { isAnonymous } from '@/shared/auth';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
-import { FormActions } from '../components/FormActions';
 import { FormField } from '../components/FormField';
-import { Modal } from '../components/Modal';
+import { Navbar } from '../components/Navbar';
+import { Page, PageActions, PageBody } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { Toggle } from '../components/Toggle';
 import { logout } from '../services/auth';
@@ -44,25 +44,27 @@ function pushDescription(
 	return 'Get notified about new messages on this device.';
 }
 
-export function ProfileModal({
-	address,
-	onClose,
-}: {
-	address: string;
-	onClose: () => void;
-}) {
+/** Somebody's profile: your own at `/profile`, a peer's at `/profile/:address`
+ * (which is where their chat's header sends you). */
+export function ProfilePage() {
+	const { address: param } = useParams<{ address?: string }>();
 	const user = useUser();
 
-	const isMe = address === user.identity?.address;
+	const address = param ?? user.identity?.address;
+	const isMe = !!address && address === user.identity?.address;
 
 	// Your own profile is already in the user service; somebody else's has to
 	// come from the relay. Either way the handle is only ever displayed — it's
 	// claimed once, at sign-up, and there's no endpoint to change it after.
-	const peer = useSWR(isMe ? null : `user-${address}`, () => getUser(address), {
-		revalidateOnFocus: false,
-		revalidateOnReconnect: false,
-		shouldRetryOnError: false,
-	});
+	const peer = useSWR(
+		isMe || !address ? null : (['user', address] as const),
+		([, peerAddress]) => getUser(peerAddress),
+		{
+			revalidateOnFocus: false,
+			revalidateOnReconnect: false,
+			shouldRetryOnError: false,
+		},
+	);
 
 	const [AddressCopyIcon, copyAdressToClipboard] = useCopyToClipboard();
 	const [HandleCopyIcon, copyHandleToClipboard] = useCopyToClipboard();
@@ -72,8 +74,9 @@ export function ProfileModal({
 		(_key: string, { arg }: { arg: boolean }) => changeDiscoverable(arg),
 	);
 
-	// Nothing to show without an identity — the gate modal is covering us anyway.
-	if (!user.identity || !user.session) return null;
+	// Only reachable in the blink between logging out and the router bouncing
+	// us to the auth page.
+	if (!address || !user.identity || !user.session) return null;
 
 	const me = user.me;
 	const handle = (isMe ? me : peer.data)?.handle ?? null;
@@ -90,9 +93,24 @@ export function ProfileModal({
 		user.pushStatus === 'subscribing' || user.pushStatus === 'unsubscribing';
 
 	return (
-		<Modal title="Profile" closeButton onClose={onClose}>
-			<div className="flex flex-col overflow-y-auto gap-3">
-				<div className="flex items-center gap-1 px-3 h-44 justify-between w-full bg-neutral-50 border border-neutral-200 rounded-sm">
+		<Page>
+			<Navbar
+				middle={<h1 className="text-xl font-bold">Profile</h1>}
+				start={
+					<Link
+						href={isMe ? '/' : `/i/${address}`}
+						aria-label={isMe ? 'Back to conversations' : 'Back to chat'}
+						className="contents"
+					>
+						<Button size={12} iconOnly variant="transparent">
+							<ChevronLeftIcon />
+						</Button>
+					</Link>
+				}
+			/>
+
+			<PageBody>
+				<div className="flex h-44 w-full shrink-0 items-center justify-between gap-1 rounded-sm border border-neutral-200 bg-neutral-100 px-3">
 					<Avatar address={address} className="size-44 shrink-0" />
 					<Signature address={address} className="text-neutral-700 h-44" />
 				</div>
@@ -126,17 +144,14 @@ export function ProfileModal({
 						info="Chosen once at sign-up, and fixed for the life of the account."
 					>
 						<div className="flex items-center gap-1">
-							<p className="text-sm text-neutral-500 shrink">
-								{handle ?? '---'}
-							</p>
+							<p className="text-sm text-neutral-500 shrink">{handle}</p>
 							<Button
 								id="copy-handle"
 								variant="transparent"
 								size={8}
-								onClick={() => copyHandleToClipboard(handle ?? '')}
+								onClick={() => copyHandleToClipboard(handle)}
 								iconOnly
 								className="shrink-0"
-								disabled={!handle}
 							>
 								<HandleCopyIcon size={14} />
 							</Button>
@@ -187,29 +202,23 @@ export function ProfileModal({
 						)}
 					</>
 				)}
+			</PageBody>
 
-				<FormActions>
-					{isMe && (
-						<Button
-							variant="danger"
-							size={12}
-							className="col-span-1"
-							onClick={() => logout().then(onClose)}
-						>
-							<LogOutIcon size={16} />
-							Logout
-						</Button>
-					)}
+			{/* No navigation after logging out — dropping the identity is enough,
+			    the router sends us to the auth page on its own. */}
+			{isMe && (
+				<PageActions>
 					<Button
-						variant="outline"
+						variant="danger"
 						size={12}
-						className={twJoin(isMe ? 'col-span-2' : 'col-span-3')}
-						onClick={() => onClose()}
+						className="w-full"
+						onClick={() => logout()}
 					>
-						OK
+						<LogOutIcon size={16} />
+						Logout
 					</Button>
-				</FormActions>
-			</div>
-		</Modal>
+				</PageActions>
+			)}
+		</Page>
 	);
 }

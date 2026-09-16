@@ -1,5 +1,6 @@
 import { DicesIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { ConversationList } from '../components/ConversationList';
@@ -10,7 +11,6 @@ import { SyncStatus } from '../components/SyncStatus';
 import { useAuth } from '../services/auth';
 import { useConversations } from '../services/chat';
 import { CreateChatModal } from './CreateChatModal';
-import { ProfileModal } from './ProfileModal';
 import { RandomChatModal } from './RandomChatModal';
 
 export function ConversationsPage() {
@@ -18,7 +18,6 @@ export function ConversationsPage() {
 	const { identity } = useAuth();
 	const [creating, setCreating] = useState(false);
 	const [matching, setMatching] = useState(false);
-	const [profile, setProfile] = useState(false);
 
 	return (
 		<Page>
@@ -30,15 +29,11 @@ export function ConversationsPage() {
 					</div>
 				}
 				end={
-					<Button
-						size={12}
-						iconOnly
-						disabled={!identity?.address}
-						variant="transparent"
-						onClick={() => setProfile(true)}
-					>
-						{identity?.address && <Avatar address={identity?.address} />}
-					</Button>
+					<Link href="/profile" aria-label="Your profile" className="contents">
+						<Button size={12} iconOnly variant="transparent">
+							{identity?.address && <Avatar address={identity.address} />}
+						</Button>
+					</Link>
 				}
 			/>
 
@@ -95,13 +90,6 @@ export function ConversationsPage() {
 			{creating && <CreateChatModal onClose={() => setCreating(false)} />}
 
 			{matching && <RandomChatModal onClose={() => setMatching(false)} />}
-
-			{profile && identity?.address && (
-				<ProfileModal
-					address={identity?.address}
-					onClose={() => setProfile(false)}
-				/>
-			)}
 		</Page>
 	);
 }
