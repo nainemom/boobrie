@@ -262,7 +262,7 @@ interface SignUpStepProps {
 const SignUpStep: FC<SignUpStepProps> = ({ busy, onSubmit }) => {
 	const [index, setIndex] = useState(0);
 
-	const draft = useSWR(`draft-identity-${index}`, generate, {
+	const draft = useSWR(`draft-identity-${index}`, () => generate(false), {
 		revalidateOnFocus: false,
 		revalidateOnReconnect: false,
 		revalidateIfStale: false,
@@ -491,7 +491,8 @@ export const AuthModal: FC = () => {
 			_key: string,
 			{ arg }: { arg: { mnemonic?: string; handle?: string } },
 		) => {
-			const mnemonic = arg.mnemonic ?? (await generate()).mnemonic;
+			// Reached only when no phrase was supplied — the "Go Anonymous" path.
+			const mnemonic = arg.mnemonic ?? (await generate(true)).mnemonic;
 			if (!mnemonic) throw new Error('Failed to generate an identity');
 			return login({ mnemonic, handle: arg.handle });
 		},

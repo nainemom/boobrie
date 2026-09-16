@@ -3,12 +3,14 @@
  *
  * An account is a key pair (see mnemonic.ts) backed by 12 words. Make a fresh
  * one with `generateIdentity`; the `address` is its public key as text — what
- * you hand out to others.
+ * you hand out to others, and what says whether the account is anonymous (see
+ * `isAnonymous`).
  *
  * With messages you `encryptMessage` (lock it using someone's address; only
  * they can open it) and `decryptMessage` (open one locked to you).
  */
 
+import { sha256 } from '@noble/hashes/sha2.js';
 import { exportPublicKeyRaw, openSeal, seal } from './crypto.ts';
 import {
 	base58ToBytes,
@@ -35,12 +37,36 @@ export async function addressOf(keyPair: CryptoKeyPair): Promise<string> {
 	return bytesToBase58(await exportPublicKeyRaw(keyPair.publicKey));
 }
 
-/** Make a brand-new account. Returns the whole identity, including the 12 words
- * to show once for backup — they're the only way back in. Does not log in. */
-export async function generateIdentity(): Promise<Identity> {
-	const mnemonic = generateMnemonic();
-	const keyPair = await mnemonicToKeyPair(mnemonic);
-	return { keyPair, address: await addressOf(keyPair), mnemonic };
+/**
+ * Whether an address belongs to an anonymous account — one bit of its hash.
+ *
+ * Anyone can read this off any address they have seen, with no lookup and no
+ * network, which is the point: it has to work for a peer you have never
+ * fetched. Because the address *is* the public key, the bit can't be flipped
+ * without throwing the account away — so it's a choice made once, at creation,
+ * and `generateIdentity` makes it by generating phrases until one lands on the
+ * side it was asked for (two tries on average).
+ *
+ * It's a hash bit rather than a leading character on purpose: the address gets
+ * pasted into links and chats, and a legible marker would brand every one of
+ * them with the account's choice.
+ */
+export function isAnonymous(address: string): boolean {
+	return (sha256(utf8ToBytes(address))[0] & 1) === 1;
+}
+
+/** Make a brand-new account, anonymous or not (see {@link isAnonymous}).
+ * Returns the whole identity, including the 12 words to show once for backup —
+ * they're the only way back in. Does not log in. */
+export async function generateIdentity(anonymous: boolean): Promise<Identity> {
+	for (;;) {
+		const mnemonic = generateMnemonic();
+		const keyPair = await mnemonicToKeyPair(mnemonic);
+		const address = await addressOf(keyPair);
+		if (isAnonymous(address) === anonymous) {
+			return { keyPair, address, mnemonic };
+		}
+	}
 }
 
 /** Lock a message to someone's address so only they can read it. You only need

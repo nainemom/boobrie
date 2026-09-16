@@ -15,6 +15,7 @@ import {
 	decryptMessage,
 	encryptMessage,
 	generateIdentity,
+	isAnonymous,
 	parseSealedBox,
 	serializeSealedBox,
 } from '@/shared/auth.ts';
@@ -53,10 +54,22 @@ describe('the words are the account', () => {
 	});
 
 	it('restores the same address on another device', async () => {
-		const { mnemonic, address } = await generateIdentity();
+		const { mnemonic, address } = await generateIdentity(true);
 		// A second device knows nothing but the words.
 		const restored = await mnemonicToKeyPair(mnemonic as string);
 		expect(await addressOf(restored)).toBe(address);
+	});
+
+	it('carries the anonymous flag in the address itself', async () => {
+		// The flag is not a profile field the relay could be asked for: it has to
+		// survive owning nothing but the words, and a peer has to be able to read
+		// it off an address alone, having never fetched anything about its owner.
+		for (const anonymous of [true, false]) {
+			const { mnemonic, address } = await generateIdentity(anonymous);
+			expect(isAnonymous(address)).toBe(anonymous);
+			const restored = await mnemonicToKeyPair(mnemonic as string);
+			expect(isAnonymous(await addressOf(restored))).toBe(anonymous);
+		}
 	});
 
 	it('accepts a phrase the user typed untidily', async () => {
@@ -101,7 +114,7 @@ describe('the words are the account', () => {
 	});
 
 	it('never exposes the private key, even for a restored identity', async () => {
-		const { keyPair } = await generateIdentity();
+		const { keyPair } = await generateIdentity(true);
 		// Non-extractable by construction — persisting it can't leak the identity.
 		expect(keyPair.privateKey.extractable).toBe(false);
 		await expect(

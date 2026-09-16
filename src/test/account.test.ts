@@ -55,7 +55,7 @@ const accountExists = async (address: string) =>
 
 describe('creating an account', () => {
 	it('shows the words, and creates nothing until you use them', async () => {
-		const identity = await generate();
+		const identity = await generate(true);
 
 		expect(identity.mnemonic?.split(' ')).toHaveLength(12);
 		expect(identity.address).toBe(await addressOf(identity.keyPair));
