@@ -42,46 +42,7 @@ export const db = new Dexie('boobrie') as Dexie & {
 
 db.version(1).stores({
 	auth: '',
+	// Primary key `id`; `owner` lists one identity's rows. Everything else lives
+	// inside the encrypted `payload`, so nothing else can be an index.
+	messages: 'id, owner',
 });
-
-db.version(2).stores({
-	auth: '',
-	// Compound primary key [owner+peer]; `owner` index lists one identity's chats.
-	conversations: '[owner+peer], owner',
-	// Primary key `id`; [owner+peer] lists a conversation, [owner+status] finds
-	// the outbox (pending messages waiting to be sent).
-	messages: 'id, [owner+peer], [owner+status]',
-});
-
-db.version(3)
-	.stores({
-		auth: '',
-		conversations: '[owner+peer], owner',
-		// [owner+peer+at] finds a conversation's most recent message in one read.
-		messages: 'id, [owner+peer], [owner+status], [owner+peer+at]',
-	})
-	// Everything predating read tracking counts as already seen, so upgrading
-	// never surfaces a wall of unread badges.
-	.upgrade((tx) =>
-		tx
-			.table('messages')
-			.toCollection()
-			.modify((message) => {
-				message.read = true;
-			}),
-	);
-
-db.version(4)
-	.stores({
-		auth: '',
-		// Conversations are now derived from messages, not stored separately.
-		conversations: null,
-		// peer/direction/body/at/status/read all move inside the encrypted
-		// `payload` — none of them can be indexed columns anymore.
-		messages: 'id, owner',
-	})
-	// The old rows are plaintext under a shape this version no longer
-	// understands; there's no local secret to migrate them with that isn't
-	// already sealed the old (plaintext) way, so start clean instead of
-	// carrying forward unencrypted history.
-	.upgrade((tx) => tx.table('messages').clear());
