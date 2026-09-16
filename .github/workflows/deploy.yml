@@ -2,8 +2,8 @@ name: Deploy
 
 on:
   workflow_dispatch:
-#   push:
-#     branches: [rc]
+  push:
+    branches: [main]
 
 concurrency:
   group: deploy
