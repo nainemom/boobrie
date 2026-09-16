@@ -57,6 +57,7 @@ export function CreateChatModal({ onClose }: { onClose: () => void }) {
 					label="Peer"
 					htmlFor="peer-input"
 					error={notFound ? 'No user found at that address or handle.' : null}
+					vertical
 				>
 					<Input
 						id="peer-input"
@@ -65,6 +66,7 @@ export function CreateChatModal({ onClose }: { onClose: () => void }) {
 						onChange={(event) => setInput(event.target.value)}
 						placeholder="address or @handle"
 						autoFocus
+						className="w-full"
 					/>
 				</FormField>
 

@@ -2,6 +2,7 @@ import { LoaderIcon, MessageSquareIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { useLocation } from 'wouter';
+import { isAnonymous } from '@/shared/auth';
 import { sleep } from '@/shared/utils';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -15,7 +16,13 @@ import { errorMessage } from '../utils/errors';
 /** How often the searching avatar swaps to a new random face. */
 const SHUFFLE_MS = 100;
 
-const randomSeed = () => Math.random().toString(36).slice(2);
+const randomSeed = () => {
+	let seed = '';
+	do {
+		seed = Math.random().toString(36).slice(2);
+	} while (!seed || isAnonymous(seed));
+	return seed;
+};
 
 export function RandomChatModal({ onClose }: { onClose: () => void }) {
 	const [, navigate] = useLocation();
@@ -90,10 +97,7 @@ export function RandomChatModal({ onClose }: { onClose: () => void }) {
 				) : search.data === undefined ? (
 					<>
 						<div className="flex flex-col items-center gap-3 py-2">
-							<Avatar
-								address={shuffleSeed}
-								className="size-36 motion-reduce:animate-none animate-pulse"
-							/>
+							<Avatar address={shuffleSeed} className="size-36" />
 							<span className="text-base text-neutral-500 flex items-center gap-1">
 								<LoaderIcon size={16} className="animate-spin" /> Finding
 								someone online…

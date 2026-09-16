@@ -37,6 +37,9 @@ function generateAvatar(address: string): string {
 			? generateVariant(11, [3, 8, 11])
 			: generateVariant([3, 8, 11]),
 		hairVariant: anonymous ? ['hat'] : generateVariant(63, [61]),
+		clothesVariant: anonymous
+			? generateVariant([2, 4, 6, 8])
+			: generateVariant(25, [2, 4, 6, 8]),
 	}).toString();
 }
 

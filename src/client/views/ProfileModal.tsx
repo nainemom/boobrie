@@ -2,9 +2,9 @@ import { LogOutIcon } from 'lucide-react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { twJoin } from 'tailwind-merge';
+import { isAnonymous } from '@/shared/auth';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
-import { Divider } from '../components/Divider';
 import { FormActions } from '../components/FormActions';
 import { FormField } from '../components/FormField';
 import { Modal } from '../components/Modal';
@@ -64,7 +64,8 @@ export function ProfileModal({
 		shouldRetryOnError: false,
 	});
 
-	const [DynamicCopyIcon, copyToClipboard] = useCopyToClipboard();
+	const [AddressCopyIcon, copyAdressToClipboard] = useCopyToClipboard();
+	const [HandleCopyIcon, copyHandleToClipboard] = useCopyToClipboard();
 
 	const discoverableMutation = useSWRMutation(
 		'settings/discoverable',
@@ -109,35 +110,39 @@ export function ProfileModal({
 							id="copy-address"
 							variant="transparent"
 							size={8}
-							onClick={() => copyToClipboard(address)}
+							onClick={() => copyAdressToClipboard(address)}
 							iconOnly
 							className="shrink-0"
 						>
-							<DynamicCopyIcon size={14} />
+							<AddressCopyIcon size={14} />
 						</Button>
 					</div>
 				</FormField>
 
-				<FormField
-					label="Handle"
-					htmlFor="copy-handle"
-					info="Chosen once at sign-up, and fixed for the life of the account."
-				>
-					<div className="flex items-center gap-1">
-						<p className="text-sm text-neutral-500 shrink">{handle ?? '---'}</p>
-						<Button
-							id="copy-handle"
-							variant="transparent"
-							size={8}
-							onClick={() => copyToClipboard(handle ?? '')}
-							iconOnly
-							className="shrink-0"
-							disabled={!handle}
-						>
-							<DynamicCopyIcon size={14} />
-						</Button>
-					</div>
-				</FormField>
+				{!isAnonymous(address) && handle && (
+					<FormField
+						label="Handle"
+						htmlFor="copy-handle"
+						info="Chosen once at sign-up, and fixed for the life of the account."
+					>
+						<div className="flex items-center gap-1">
+							<p className="text-sm text-neutral-500 shrink">
+								{handle ?? '---'}
+							</p>
+							<Button
+								id="copy-handle"
+								variant="transparent"
+								size={8}
+								onClick={() => copyHandleToClipboard(handle ?? '')}
+								iconOnly
+								className="shrink-0"
+								disabled={!handle}
+							>
+								<HandleCopyIcon size={14} />
+							</Button>
+						</div>
+					</FormField>
+				)}
 
 				{isMe && (
 					<>
@@ -183,18 +188,16 @@ export function ProfileModal({
 					</>
 				)}
 
-				<Divider />
-
 				<FormActions>
 					{isMe && (
 						<Button
 							variant="danger"
 							size={12}
 							className="col-span-1"
-							onClick={() => logout()}
+							onClick={() => logout().then(onClose)}
 						>
 							<LogOutIcon size={16} />
-							Log-out
+							Logout
 						</Button>
 					)}
 					<Button

@@ -222,10 +222,11 @@ const SignInStep: FC<SignInStepProps> = ({ busy, error, onSubmit }) => {
 				label="Recovery phrase"
 				htmlFor="recovery-phrase-input"
 				error={errors.mnemonic?.message}
+				vertical
 			>
 				<Textarea
 					id="recovery-phrase-input"
-					className="w-full"
+					className="w-full min-h-32"
 					size={12}
 					placeholder="word1 word2 … word12"
 					autoFocus
@@ -299,6 +300,7 @@ const SignUpStep: FC<SignUpStepProps> = ({ busy, onSubmit }) => {
 				label="Handle"
 				htmlFor="handle-input"
 				error={errors.handle?.message}
+				vertical
 			>
 				<Input
 					id="handle-input"
@@ -314,7 +316,7 @@ const SignUpStep: FC<SignUpStepProps> = ({ busy, onSubmit }) => {
 					{...register('handle')}
 				/>
 			</FormField>
-			<FormField label="Avatar & Signature" htmlFor="address-button">
+			<FormField label="Avatar & Signature" htmlFor="address-button" vertical>
 				<div className="relative w-full rounded-sm border border-neutral-200 bg-neutral-50">
 					<div className="flex items-center gap-1 px-3 h-32 justify-between w-full bg-neutral-100 border-b border-neutral-200">
 						{address && (
@@ -414,6 +416,7 @@ const RememberStep: FC<RememberStepProps> = ({
 					label={`Word ${checkIndex + 1}`}
 					htmlFor="check-word-input"
 					error={errors.guess?.message}
+					vertical
 				>
 					<Input
 						id="check-word-input"
@@ -423,6 +426,7 @@ const RememberStep: FC<RememberStepProps> = ({
 						autoCapitalize="none"
 						autoComplete="off"
 						autoCorrect="off"
+						className="w-full"
 						{...register('guess')}
 					/>
 				</FormField>
@@ -439,8 +443,8 @@ const RememberStep: FC<RememberStepProps> = ({
 
 	return (
 		<div className="flex flex-col gap-3">
-			<FormField label="Recovery phrase" error={error}>
-				<ol className="grid grid-cols-3 gap-2">
+			<FormField label="Recovery phrase" error={error} vertical>
+				<ol className="grid grid-cols-3 gap-2 w-full">
 					{words.map((word, index) => (
 						<li
 							// biome-ignore lint/suspicious/noArrayIndexKey: fixed-order phrase, words may repeat, never reordered

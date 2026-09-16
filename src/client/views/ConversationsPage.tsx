@@ -1,11 +1,6 @@
-import {
-	DicesIcon,
-	MessageCircleIcon,
-	PlusIcon,
-	SettingsIcon,
-	ShuffleIcon,
-} from 'lucide-react';
+import { DicesIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
+import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { ConversationList } from '../components/ConversationList';
 import { Navbar } from '../components/Navbar';
@@ -38,11 +33,11 @@ export function ConversationsPage() {
 					<Button
 						size={12}
 						iconOnly
-						loading={!identity}
+						disabled={!identity?.address}
 						variant="transparent"
 						onClick={() => setProfile(true)}
 					>
-						<SettingsIcon />
+						{identity?.address && <Avatar address={identity?.address} />}
 					</Button>
 				}
 			/>
@@ -67,7 +62,7 @@ export function ConversationsPage() {
 								<PlusIcon size={16} /> Start a chat
 							</Button>
 							<Button variant="outline" onClick={() => setMatching(true)}>
-								<ShuffleIcon size={16} /> Talk to a stranger
+								<DicesIcon size={16} /> Talk to a stranger
 							</Button>
 						</div>
 					</div>

@@ -1,5 +1,10 @@
 import { LoaderIcon } from 'lucide-react';
-import type { ButtonHTMLAttributes, FC } from 'react';
+import {
+	type ButtonHTMLAttributes,
+	type FC,
+	type MouseEvent,
+	useState,
+} from 'react';
 import { tv, type VariantProps } from 'tailwind-variants';
 
 export const button = tv({
@@ -64,7 +69,12 @@ export const button = tv({
 });
 
 export const Button: FC<
-	ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button>
+	Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> &
+		VariantProps<typeof button> & {
+			onClick?: (
+				event: MouseEvent<HTMLButtonElement>,
+			) => unknown | Promise<unknown>;
+		}
 > = ({
 	className,
 	variant,
@@ -73,19 +83,31 @@ export const Button: FC<
 	children,
 	loading,
 	size,
+	onClick,
 	...props
-}) => (
-	<button
-		type="button"
-		{...props}
-		disabled={disabled || loading}
-		className={button({ variant, iconOnly, loading, size, className })}
-	>
-		<span className="contents">{children}</span>
-		{loading && (
-			<div className="flex items-center justify-center absolute inset-0">
-				<LoaderIcon size={18} className="animate-spin" />
-			</div>
-		)}
-	</button>
-);
+}) => {
+	const [localLoading, setLocalLoading] = useState(false);
+	return (
+		<button
+			type="button"
+			onClick={(e) => {
+				const resp = onClick?.(e);
+				if (resp instanceof Promise) {
+					setLocalLoading(true);
+					resp.finally(() => setLocalLoading(false));
+				}
+				return resp;
+			}}
+			{...props}
+			disabled={disabled || loading}
+			className={button({ variant, iconOnly, loading, size, className })}
+		>
+			<span className="contents">{children}</span>
+			{(localLoading || loading) && (
+				<div className="flex items-center justify-center absolute inset-0">
+					<LoaderIcon size={18} className="animate-spin" />
+				</div>
+			)}
+		</button>
+	);
+};

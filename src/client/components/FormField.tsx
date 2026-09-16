@@ -16,11 +16,26 @@ export const FormField: FC<
 		info?: string | null;
 		children?: ReactNode;
 		className?: string;
+		vertical?: boolean;
 	} & VariantProps<typeof formField>
-> = ({ htmlFor, label, children, error, success, info, className }) => {
+> = ({
+	htmlFor,
+	label,
+	children,
+	error,
+	success,
+	info,
+	className,
+	vertical,
+}) => {
 	return (
 		<div className={formField({ className })}>
-			<div className="flex items-center justify-between gap-2 w-full">
+			<div
+				className={twJoin(
+					'flex items-center justify-between gap-2 w-full',
+					vertical && 'flex-col items-start',
+				)}
+			>
 				{label && (
 					<label
 						htmlFor={htmlFor}
@@ -35,7 +50,14 @@ export const FormField: FC<
 						)}
 					</label>
 				)}
-				<div className={twJoin(label ? 'shrink' : 'contents')}>{children}</div>
+				<div
+					className={twJoin(
+						label ? 'shrink' : 'contents',
+						vertical && 'w-full',
+					)}
+				>
+					{children}
+				</div>
 			</div>
 			{error && (
 				<p
