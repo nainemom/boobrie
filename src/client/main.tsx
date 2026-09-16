@@ -2,11 +2,21 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { log } from '@/shared/log';
 import { App } from './App.tsx';
+import { env } from './env.ts';
 import { pushSupported, registerServiceWorker } from './services/push.ts';
 import { startSync } from './services/sync.ts';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Failed to find the root element');
+
+const domain = new URL(window.location.href);
+const allowdDomain = new URL(env.CLIENT_PUBLIC_URL);
+if (domain.origin !== allowdDomain.origin) {
+	document.body.innerHTML = `Domain mismatch. Visit <a href="${allowdDomain.origin}">${allowdDomain.origin}</a>.`;
+	throw new Error(
+		`Domain mismatch: ${domain.origin} !== ${allowdDomain.origin}.`,
+	);
+}
 
 createRoot(root).render(
 	<StrictMode>
