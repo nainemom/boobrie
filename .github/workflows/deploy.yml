@@ -15,8 +15,8 @@ permissions:
   contents: write
 
 jobs:
-  bump-src-version:
-    name: bump-src-version
+  bump-version:
+    name: Bump Version
     runs-on: ubuntu-latest
 
     steps:
@@ -58,9 +58,9 @@ jobs:
         run: node -p "require('./package.json').version"
 
   deploy-client:
-    name: deploy-client
+    name: Deploy Client
     runs-on: ubuntu-latest
-    needs: bump-src-version
+    needs: bump-version
 
     environment:
       name: production
@@ -108,9 +108,9 @@ jobs:
         uses: actions/deploy-pages@v5
 
   deploy-relay:
-    name: deploy-relay
+    name: Depoly Relay
     runs-on: ubuntu-latest
-    needs: bump-src-version
+    needs: bump-version
 
     permissions:
       contents: read
