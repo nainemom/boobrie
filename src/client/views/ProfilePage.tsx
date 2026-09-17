@@ -1,6 +1,13 @@
-import { ChevronLeftIcon, LogOutIcon } from 'lucide-react';
+import {
+	ChevronLeftIcon,
+	HatGlassesIcon,
+	LogOutIcon,
+	MessageCircleIcon,
+	UserCheck,
+} from 'lucide-react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
+import { twMerge } from 'tailwind-merge';
 import { Link, useParams } from 'wouter';
 import { isAnonymous } from '@/shared/auth';
 import { Avatar } from '../components/Avatar';
@@ -10,7 +17,9 @@ import { Navbar } from '../components/Navbar';
 import { Page, PageActions, PageBody } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { Toggle } from '../components/Toggle';
+import { env } from '../env';
 import { logout } from '../services/auth';
+import { useMessages } from '../services/chat';
 import { getUser } from '../services/relay';
 import {
 	changeDiscoverable,
@@ -19,7 +28,9 @@ import {
 	useUser,
 } from '../services/user';
 import { truncateAddress } from '../utils/address';
+import { truncateLink } from '../utils/link';
 import { useCopyToClipboard } from '../utils/useCopyToClipboard';
+import { useOsShare } from '../utils/useOsShare';
 
 function pushDescription(
 	permission: NotificationPermission | 'unsupported',
@@ -57,7 +68,7 @@ export function ProfilePage() {
 	// come from the relay. Either way the handle is only ever displayed — it's
 	// claimed once, at sign-up, and there's no endpoint to change it after.
 	const peer = useSWR(
-		isMe || !address ? null : (['user', address] as const),
+		!address ? null : (['user', address] as const),
 		([, peerAddress]) => getUser(peerAddress),
 		{
 			revalidateOnFocus: false,
@@ -66,6 +77,12 @@ export function ProfilePage() {
 		},
 	);
 
+	// Hooks can't be conditional, so this loads on your own profile too, where it
+	// finds nothing and nothing reads it. It's the same full decrypt a chat does
+	// on open, and the page is already waiting on the relay for the rest.
+	const messages = useMessages(address ?? '');
+
+	const [UrlShareIcon, shareUrl] = useOsShare();
 	const [AddressCopyIcon, copyAdressToClipboard] = useCopyToClipboard();
 	const [HandleCopyIcon, copyHandleToClipboard] = useCopyToClipboard();
 
@@ -79,11 +96,11 @@ export function ProfilePage() {
 	if (!address || !user.identity || !user.session) return null;
 
 	const me = user.me;
-	const handle = (isMe ? me : peer.data)?.handle ?? null;
+	const url = `${env.CLIENT_PUBLIC_URL}/${peer.data?.handle ?? `i/${address}`}`;
 
 	const toggleDiscoverable = () => {
 		if (!me) return;
-		void discoverableMutation.trigger(!me.discoverable, {
+		return discoverableMutation.trigger(!me.discoverable, {
 			throwOnError: false,
 		});
 	};
@@ -109,11 +126,56 @@ export function ProfilePage() {
 				}
 			/>
 
-			<PageBody>
-				<div className="flex h-44 w-full shrink-0 items-center justify-between gap-1 rounded-sm border border-neutral-200 bg-neutral-100 px-3">
-					<Avatar address={address} className="size-44 shrink-0" />
-					<Signature address={address} className="text-neutral-700 h-44" />
-				</div>
+			<PageBody className="gap-4">
+				<FormField vertical className="mb-4">
+					<div className="flex h-64 w-full shrink-0 items-center justify-between gap-1 rounded-sm border border-neutral-200 px-3">
+						<Avatar address={address} className="size-64 shrink-0" />
+						<Signature address={address} className="text-neutral-700 h-64" />
+					</div>
+				</FormField>
+
+				<FormField label="Account Type">
+					<p className="flex items-center gap-1 text-sm text-neutral-500">
+						{isAnonymous(address) ? (
+							<>
+								<HatGlassesIcon size={14} className="shrink-0" />
+								Anonymous
+							</>
+						) : (
+							<>
+								<UserCheck size={14} className="shrink-0" />
+								Normal
+							</>
+						)}
+					</p>
+				</FormField>
+
+				{isMe && (
+					<FormField label="URL" htmlFor="share-url">
+						<div className="flex items-center gap-1">
+							<Link
+								className={twMerge(
+									'text-sm shrink text-neutral-500 overflow-hidden truncate max-w-full',
+									peer.isLoading && 'animate-ping',
+								)}
+								to={url}
+							>
+								{truncateLink(url)}
+							</Link>
+							<Button
+								id="share-url"
+								aria-label="Share profile url"
+								variant="transparent"
+								size={6}
+								onClick={() => shareUrl(url)}
+								iconOnly
+								className="shrink-0"
+							>
+								<UrlShareIcon size={14} />
+							</Button>
+						</div>
+					</FormField>
+				)}
 
 				<FormField
 					label="Address"
@@ -127,7 +189,7 @@ export function ProfilePage() {
 						<Button
 							id="copy-address"
 							variant="transparent"
-							size={8}
+							size={6}
 							onClick={() => copyAdressToClipboard(address)}
 							iconOnly
 							className="shrink-0"
@@ -137,27 +199,44 @@ export function ProfilePage() {
 					</div>
 				</FormField>
 
-				{!isAnonymous(address) && handle && (
-					<FormField
-						label="Handle"
-						htmlFor="copy-handle"
-						info="Chosen once at sign-up, and fixed for the life of the account."
+				<FormField label="Handle" htmlFor="copy-handle">
+					<div className="flex items-center gap-1">
+						<p
+							className={twMerge(
+								'text-sm shrink',
+								peer.isLoading && 'animate-ping',
+								peer.data?.handle ? 'text-neutral-500' : 'text-neutral-300',
+							)}
+						>
+							{peer.data?.handle || '---'}
+						</p>
+						<Button
+							id="copy-handle"
+							variant="transparent"
+							size={6}
+							onClick={() => copyHandleToClipboard(peer.data?.handle ?? '')}
+							iconOnly
+							className="shrink-0"
+							disabled={!peer.data?.handle}
+						>
+							<HandleCopyIcon size={14} />
+						</Button>
+					</div>
+				</FormField>
+
+				<FormField label="Joined">
+					<p
+						className={twMerge(
+							'text-sm shrink',
+							peer.isLoading && 'animate-ping',
+							peer.data?.createdAt ? 'text-neutral-500' : 'text-neutral-300',
+						)}
 					>
-						<div className="flex items-center gap-1">
-							<p className="text-sm text-neutral-500 shrink">{handle}</p>
-							<Button
-								id="copy-handle"
-								variant="transparent"
-								size={8}
-								onClick={() => copyHandleToClipboard(handle)}
-								iconOnly
-								className="shrink-0"
-							>
-								<HandleCopyIcon size={14} />
-							</Button>
-						</div>
-					</FormField>
-				)}
+						{peer.data?.createdAt
+							? new Date(peer.data?.createdAt).toLocaleDateString()
+							: '---'}
+					</p>
+				</FormField>
 
 				{isMe && (
 					<>
@@ -177,12 +256,12 @@ export function ProfilePage() {
 								onChange={() =>
 									subscribed ? disablePush() : subscribeDevice()
 								}
+								loading={pushBusy}
 								disabled={
-									pushBusy ||
-									(!subscribed &&
-										(user.permission === 'denied' ||
-											user.permission === 'unsupported' ||
-											!me?.vapidPublicKey))
+									!subscribed &&
+									(user.permission === 'denied' ||
+										user.permission === 'unsupported' ||
+										!me?.vapidPublicKey)
 								}
 							/>
 						</FormField>
@@ -195,7 +274,6 @@ export function ProfilePage() {
 							>
 								<Toggle
 									checked={me.discoverable}
-									disabled={discoverableMutation.isMutating}
 									onChange={toggleDiscoverable}
 								/>
 							</FormField>
@@ -206,8 +284,9 @@ export function ProfilePage() {
 
 			{/* No navigation after logging out — dropping the identity is enough,
 			    the router sends us to the auth page on its own. */}
-			{isMe && (
-				<PageActions>
+
+			<PageActions>
+				{isMe ? (
 					<Button
 						variant="danger"
 						size={12}
@@ -217,8 +296,15 @@ export function ProfilePage() {
 						<LogOutIcon size={16} />
 						Logout
 					</Button>
-				</PageActions>
-			)}
+				) : (
+					<Link className="contents" to={`/i/${address}`}>
+						<Button variant="outline" size={12} className="w-full">
+							<MessageCircleIcon size={16} />
+							Chat
+						</Button>
+					</Link>
+				)}
+			</PageActions>
 		</Page>
 	);
 }

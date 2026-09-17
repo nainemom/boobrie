@@ -75,7 +75,7 @@ export function AnonymousStep() {
 					</>
 				) : (
 					<>
-						<Spinner size="lg" className="text-neutral-300" />
+						<Spinner size={8} className="text-neutral-300" />
 						<p className="font-medium text-neutral-500">
 							Creating an identity…
 						</p>
