@@ -8,10 +8,10 @@ import { PrismaClient } from './generated/client.ts';
 // The host on its own, for the "waiting for the database" line below. A
 // connection string carries the password with it, and that has no business in
 // a log. Set and well-formed is `env.ts`'s business, not this file's.
-const dbHost = new URL(env.RELAY_DB_URL).host;
+const dbHost = new URL(env.DATABASE_URL).host;
 
 const pool = new Pool({
-	connectionString: env.RELAY_DB_URL,
+	connectionString: env.DATABASE_URL,
 });
 export const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -20,7 +20,7 @@ export const db = new PrismaClient({ adapter: new PrismaPg(pool) });
  * open, and a `Client` can't be reused once its connection has ended. */
 export const createListener = (): Client =>
 	new Client({
-		connectionString: env.RELAY_DB_URL,
+		connectionString: env.DATABASE_URL,
 	});
 
 /** Let go of the pool. The relay itself never needs this — the process ends and

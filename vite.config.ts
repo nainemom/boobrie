@@ -121,7 +121,25 @@ const siteMetadata = (): Plugin => ({
 	},
 });
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
+	// The one place the client can be strict. Its env is read at build and
+	// stamped into the bundle — `define` below — so there is no later moment to
+	// notice a missing one, and the fallbacks in `env.ts` would quietly publish a
+	// site whose links and relay both point at localhost. `vite` (dev) is left
+	// alone: the fallbacks exist precisely so a bare checkout runs.
+	if (command === 'build') {
+		const missing = (['CLIENT_PUBLIC_URL', 'CLIENT_RELAY_URL'] as const).filter(
+			(name) => !process.env[name],
+		);
+		if (missing.length > 0) {
+			throw new Error(
+				`building the client without ${missing.join(' and ')} — the ` +
+					'fallbacks in `env.ts` are for `npm run dev:client`, and a build ' +
+					'that takes them ships a bundle that talks to localhost',
+			);
+		}
+	}
+
 	return {
 		server: {
 			strictPort: true,

@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RELAY_JWT_SECRET: test-only-insecure-secret
-      RELAY_DB_URL: postgresql://user:password@localhost:5432/boobrie
+      JWT_SECRET: test-only-insecure-secret
+      DATABASE_URL: postgresql://user:password@localhost:5432/boobrie
       RELAY_PORT: 5200
       RELAY_HOST: 127.0.0.1
       RELAY_HEARTBEAT_MS: 2000

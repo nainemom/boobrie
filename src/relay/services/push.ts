@@ -15,23 +15,19 @@ let enabled = false;
 
 export const initPush = (): void => {
 	// All three or nothing: half a VAPID pair signs nothing, so push stays off.
-	if (
-		!env.RELAY_VAPID_SUBJECT ||
-		!env.RELAY_VAPID_PUBLIC_KEY ||
-		!env.RELAY_VAPID_PRIVATE_KEY
-	) {
+	if (!env.VAPID_SUBJECT || !env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
 		return;
 	}
 	setVapidDetails(
-		env.RELAY_VAPID_SUBJECT,
-		env.RELAY_VAPID_PUBLIC_KEY,
-		env.RELAY_VAPID_PRIVATE_KEY,
+		env.VAPID_SUBJECT,
+		env.VAPID_PUBLIC_KEY,
+		env.VAPID_PRIVATE_KEY,
 	);
 	enabled = true;
 };
 
 export const vapidPublicKey = (): string | null =>
-	enabled ? (env.RELAY_VAPID_PUBLIC_KEY ?? null) : null;
+	enabled ? (env.VAPID_PUBLIC_KEY ?? null) : null;
 
 export const saveSubscription = async (
 	address: string,

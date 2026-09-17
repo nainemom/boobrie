@@ -18,13 +18,8 @@ const schema = z.object({
 	 * lingers, at the cost of more writes. */
 	RELAY_HEARTBEAT_MS: durationMs(2_000),
 
-	RELAY_JWT_SECRET: z
-		.string()
-		.min(1)
-		.default('dev-only-insecure-secret-change-me'),
-	RELAY_DB_URL: z
-		.url()
-		.default('postgresql://unused:unused@localhost:5432/unused'),
+	JWT_SECRET: z.string().min(1),
+	DATABASE_URL: z.url(),
 
 	/** Origins allowed to call the relay, space separated, as the list h3
 	 * wants. `*` — which is also the default — allows any, which is what a
@@ -39,9 +34,9 @@ const schema = z.object({
 
 	// Web Push. Optional — `push.ts` runs without them, and takes all three
 	// together or not at all.
-	RELAY_VAPID_SUBJECT: z.string().min(1).optional(),
-	RELAY_VAPID_PUBLIC_KEY: z.string().min(1).optional(),
-	RELAY_VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+	VAPID_SUBJECT: z.string().min(1).optional(),
+	VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+	VAPID_PRIVATE_KEY: z.string().min(1).optional(),
 });
 
 export const env = schema.parse(process.env);

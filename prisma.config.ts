@@ -7,6 +7,6 @@ export default defineConfig({
 		path: 'src/relay/db/migrations',
 	},
 	datasource: {
-		url: env.RELAY_DB_URL,
+		url: env.DATABASE_URL,
 	},
 });

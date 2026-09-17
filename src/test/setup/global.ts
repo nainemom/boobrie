@@ -3,8 +3,8 @@
  * database with the schema on it, and a relay in front of it.
  *
  * Both are configured out of the environment the app itself reads, through the
- * relay's own {@link env} — `RELAY_DB_URL`, `RELAY_PORT`, `RELAY_HOST`,
- * `RELAY_JWT_SECRET`, checked there and nowhere else. Nothing here holds a test's
+ * relay's own {@link env} — `DATABASE_URL`, `RELAY_PORT`, `RELAY_HOST`,
+ * `JWT_SECRET`, checked there and nowhere else. Nothing here holds a test's
  * idea of any of them, so there is nothing for a test environment to drift away
  * from: whatever `npm run dev:relay` would connect to and listen on is what
  * these tests get.
@@ -51,7 +51,7 @@ function requireClientPointsHere(): void {
  * it up to the current schema. `migrate deploy` is what production runs and is
  * a no-op once there is nothing new to apply. */
 async function migrate(): Promise<void> {
-	const client = new Client({ connectionString: env.RELAY_DB_URL });
+	const client = new Client({ connectionString: env.DATABASE_URL });
 	try {
 		await client.connect();
 		await client.end();
@@ -59,7 +59,7 @@ async function migrate(): Promise<void> {
 		// 3D000 is "database does not exist" — the only failure worth answering
 		// for. Anything else (no server, wrong password) is the developer's to fix.
 		if ((error as { code?: string }).code !== '3D000') throw error;
-		const url = new URL(env.RELAY_DB_URL);
+		const url = new URL(env.DATABASE_URL);
 		const name = url.pathname.slice(1);
 		url.pathname = '/postgres';
 		const maintenance = new Client({ connectionString: url.toString() });
@@ -67,7 +67,7 @@ async function migrate(): Promise<void> {
 		await maintenance.query(`create database "${name}"`);
 		await maintenance.end();
 	}
-	// No environment passed: the child reads `RELAY_DB_URL` from this process,
+	// No environment passed: the child reads `DATABASE_URL` from this process,
 	// which is where the relay read it from too.
 	await run('npx', ['prisma', 'migrate', 'deploy']);
 }
