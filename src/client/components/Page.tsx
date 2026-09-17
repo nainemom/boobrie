@@ -1,4 +1,5 @@
 import type { FC, ReactNode } from 'react';
+import { twMerge } from 'tailwind-merge';
 
 /**
  * A full-height screen. Pages are built from three pieces stacked in this
@@ -12,8 +13,16 @@ export const Page: FC<{ children?: ReactNode }> = ({ children }) => (
 
 /** The scrolling middle of a page: everything between the navbar and whatever
  * is pinned below it. */
-export const PageBody: FC<{ children?: ReactNode }> = ({ children }) => (
-	<div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
+export const PageBody: FC<{ children?: ReactNode; className?: string }> = ({
+	children,
+	className,
+}) => (
+	<div
+		className={twMerge(
+			'flex flex-1 flex-col gap-3 overflow-y-auto p-3',
+			className,
+		)}
+	>
 		{children}
 	</div>
 );

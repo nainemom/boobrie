@@ -1,11 +1,7 @@
 import { LoaderIcon } from 'lucide-react';
-import {
-	type ButtonHTMLAttributes,
-	type FC,
-	type MouseEvent,
-	useState,
-} from 'react';
+import type { ButtonHTMLAttributes, FC, MouseEvent } from 'react';
 import { tv, type VariantProps } from 'tailwind-variants';
+import { usePromiseLoading } from '../utils/usePromiseLoading';
 
 export const button = tv({
 	base: [
@@ -83,27 +79,20 @@ export const Button: FC<
 	children,
 	loading,
 	size,
-	onClick,
+	onClick: rawOnClick,
 	...props
 }) => {
-	const [localLoading, setLocalLoading] = useState(false);
+	const [promiseLoading, onClick] = usePromiseLoading(rawOnClick);
 	return (
 		<button
 			type="button"
-			onClick={(e) => {
-				const resp = onClick?.(e);
-				if (resp instanceof Promise) {
-					setLocalLoading(true);
-					resp.finally(() => setLocalLoading(false));
-				}
-				return resp;
-			}}
+			onClick={onClick}
 			{...props}
-			disabled={disabled || loading}
+			disabled={disabled || loading || promiseLoading}
 			className={button({ variant, iconOnly, loading, size, className })}
 		>
 			<span className="contents">{children}</span>
-			{(localLoading || loading) && (
+			{(promiseLoading || loading) && (
 				<div className="flex items-center justify-center absolute inset-0">
 					<LoaderIcon size={18} className="animate-spin" />
 				</div>

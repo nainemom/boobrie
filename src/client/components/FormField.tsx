@@ -53,7 +53,7 @@ export const FormField: FC<
 				<div
 					className={twJoin(
 						label ? 'shrink' : 'contents',
-						vertical && 'w-full',
+						vertical ? 'w-full' : 'overflow-hidden max-w-2/3',
 					)}
 				>
 					{children}
