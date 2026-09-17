@@ -19,7 +19,6 @@ import { Signature } from '../components/Signature';
 import { Toggle } from '../components/Toggle';
 import { env } from '../env';
 import { logout } from '../services/auth';
-import { useMessages } from '../services/chat';
 import { getUser } from '../services/relay';
 import {
 	changeDiscoverable,
@@ -76,11 +75,6 @@ export function ProfilePage() {
 			shouldRetryOnError: false,
 		},
 	);
-
-	// Hooks can't be conditional, so this loads on your own profile too, where it
-	// finds nothing and nothing reads it. It's the same full decrypt a chat does
-	// on open, and the page is already waiting on the relay for the rest.
-	const messages = useMessages(address ?? '');
 
 	const [UrlShareIcon, shareUrl] = useOsShare();
 	const [AddressCopyIcon, copyAdressToClipboard] = useCopyToClipboard();
