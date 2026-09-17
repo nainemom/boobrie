@@ -10,7 +10,6 @@ import {
 	verifyHandler,
 } from './services/auth.ts';
 import {
-	presenceHandler,
 	randomMatchHandler,
 	readMessageHandler,
 	sendMessageHandler,
@@ -68,7 +67,6 @@ export function createApp(): H3 {
 	app.delete('/messages/:id', readMessageHandler, {
 		middleware: [requireAuth],
 	});
-	app.get('/presence/:address', presenceHandler, { middleware: [requireAuth] });
 	app.post('/random', randomMatchHandler, { middleware: [requireAuth] });
 	app.get('/handles/:handle', redirectUserHandler('/users/:address'));
 	app.get('/users/:address', getUserHandler);

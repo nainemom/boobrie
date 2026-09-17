@@ -8,8 +8,11 @@
  * over NOTIFY — its payload is capped at 8 KB and a message (a file, say) can
  * exceed that. Queued rows are the durable backstop — replayed on (re)connect
  * and cleared when the client reads them. Presence is derived from the
- * `sessions` table so any pod can answer "is X online?" and decide whether to
- * nudge an offline recipient with a web push.
+ * `sessions` table so any pod can answer "is X online?" — enough to decide
+ * whether a recipient needs nudging with a web push, and who is around to be
+ * offered to a stranger. The table holds live connections and nothing else: a
+ * stream deletes its own row on the way out, and {@link sweepSessions} clears
+ * what a pod that died without getting that far left behind.
  *
  * NOTIFY is best-effort: Postgres does not queue it for a disconnected backend,
  * so the listener owns its connection lifecycle — it reconnects, re-LISTENs,
@@ -28,8 +31,6 @@ import { log } from '@/shared/log';
 import {
 	type Message,
 	messageParamsSchema,
-	type PresenceResponse,
-	presenceParamsSchema,
 	type RandomMatchResponse,
 	randomMatchSchema,
 	sendMessageSchema,
@@ -61,6 +62,39 @@ const isOnline = async (address: string): Promise<boolean> => {
 		select: { id: true },
 	});
 	return Boolean(row);
+};
+
+/**
+ * Delete every connection record nothing is heartbeating any more.
+ *
+ * A stream that closes cleanly takes its own row with it, so what this finds is
+ * what a pod that went down hard — crashed, killed, partitioned away — left
+ * behind. Presence tolerates those rows already, being a freshness check rather
+ * than a lookup; this is what keeps the table from carrying one for every pod
+ * that ever died, so what it holds is the connections that actually exist.
+ */
+export const sweepSessions = async (): Promise<void> => {
+	await db.session.deleteMany({
+		where: { createdAt: { lt: new Date(Date.now() - PRESENCE_TTL_MS) } },
+	});
+};
+
+let sweeper: ReturnType<typeof setInterval> | null = null;
+
+/** Sweep now, then every TTL. Sweeping faster would find nothing — a row isn't
+ * dead until it has aged out of the presence window — and sweeping slower would
+ * leave rows lying about for longer than the relay ever believes them. Runs on
+ * every pod: the delete is a no-op for anyone who gets there second. */
+const startSweeping = (): void => {
+	// Idempotent, like `keepListening`: a second `watchMessages` must not leave a
+	// timer behind that `stopWatching` has no handle on.
+	if (sweeper) return;
+	const run = () =>
+		void sweepSessions().catch((err) =>
+			log('warn', 'session sweep failed', err),
+		);
+	sweeper = setInterval(run, PRESENCE_TTL_MS);
+	run();
 };
 
 /** Announce a message id on the `chat` channel so the recipient's pod loads and
@@ -192,9 +226,11 @@ const keepListening = (): Promise<void> => {
 	return running;
 };
 
-/** Establish (and thereafter maintain) the cross-pod `chat` subscription. */
+/** Establish (and thereafter maintain) the cross-pod `chat` subscription, and
+ * start sweeping dead connection records. */
 export const watchMessages = async (): Promise<void> => {
 	stopped = false;
+	startSweeping();
 	await keepListening();
 };
 
@@ -204,6 +240,8 @@ export const watchMessages = async (): Promise<void> => {
  * cleanly — or handing the process back to a test runner — needs it. */
 export const stopWatching = async (): Promise<void> => {
 	stopped = true;
+	if (sweeper) clearInterval(sweeper);
+	sweeper = null;
 	// Before looking at `listener`: a reconnect in flight is about to set it, and
 	// it checks `stopped` on the way through, so waiting here is what makes the
 	// look below conclusive.
@@ -234,8 +272,16 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 	void stream.pushComment('connected');
 	const heartbeat = setInterval(() => {
 		void stream.pushComment('ping');
+		// An upsert rather than an update, so that a row the sweeper took while
+		// this connection was merely slow to report in costs one heartbeat rather
+		// than the rest of the session: the next tick puts it back under the same
+		// id, and nothing downstream can tell.
 		db.session
-			.update({ where: { id: session.id }, data: { createdAt: new Date() } })
+			.upsert({
+				where: { id: session.id },
+				create: { id: session.id, address },
+				update: { createdAt: new Date() },
+			})
 			.catch((err) =>
 				log('warn', 'session heartbeat touch failed', address, err),
 			);
@@ -280,17 +326,6 @@ export const readMessageHandler = defineHandler(async (event) => {
 	await db.pendingMessage.deleteMany({ where: { recipient: address, id } });
 	event.res.status = 204;
 	return null;
-});
-
-export const presenceHandler = defineHandler(async (event) => {
-	const { address } = await getValidatedRouterParams(
-		event,
-		presenceParamsSchema,
-	);
-	return {
-		address,
-		online: await isOnline(address),
-	} satisfies PresenceResponse;
 });
 
 export const randomMatchHandler = defineHandler(async (event) => {
