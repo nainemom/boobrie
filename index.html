@@ -2,7 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` lets the app paint all the way to the physical
+         edges of the screen and hands the notch and home-indicator sizes to CSS
+         as `env(safe-area-inset-*)`, which `style.css` pads `#root` with.
+         Without it those are all `0px` and the browser letterboxes the page
+         itself, which on an installed PWA leaves a band of the wrong colour.
+
+         `interactive-widget=resizes-content` is what stops the on-screen
+         keyboard from shoving the layout out of the window: the layout viewport
+         shrinks to the space above the keyboard, so `100dvh` keeps meaning "the
+         part you can see" and the composer lands on top of it rather than
+         behind it. iOS ignores the key, so `main.tsx` measures `visualViewport`
+         and arrives at the same answer there. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <title>%SITE_TITLE%</title>
     <meta name="description" content="%SITE_DESCRIPTION%" />
     <link rel="canonical" href="%CLIENT_PUBLIC_URL%/" />
