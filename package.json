@@ -13,7 +13,6 @@
 		"lint:staged": "biome check --staged --no-errors-on-unmatched",
 		"lint:ci": "biome ci",
 		"lint:fix": "biome check --write --unsafe",
-		"bump": "./bump.sh",
 		"db:start": "docker compose -f compose.dev.yml up -d --wait postgres",
 		"db:stop": "docker compose -f compose.dev.yml stop postgres",
 		"db:generate-types": "prisma generate",
