@@ -58,7 +58,7 @@ jobs:
         run: node -p "require('./package.json').version"
 
   deploy-client:
-    name: deploy-
+    name: deploy-client
     runs-on: ubuntu-latest
     needs: bump-src-version
 
