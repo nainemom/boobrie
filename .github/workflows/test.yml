@@ -2,9 +2,10 @@ name: Test
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [rc, master]
-  # pull_request:
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -12,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RELAY_JWT_SECRET: test-only-insecure-secret
-      RELAY_DB_URL: postgresql://user:password@localhost:5432/boobrie
+      JWT_SECRET: test-only-insecure-secret
+      DATABASE_URL: postgresql://user:password@localhost:5432/boobrie
       RELAY_PORT: 5200
       RELAY_HOST: 127.0.0.1
       RELAY_HEARTBEAT_MS: 2000
@@ -21,10 +22,6 @@ jobs:
       RELAY_SESSION_TTL_MS: 3600000
       CLIENT_RELAY_URL: http://localhost:5200
       CLIENT_PORT: 5100
-
-    strategy:
-      matrix:
-        node-version: [24.x]
 
     services:
       postgres:
@@ -48,7 +45,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies

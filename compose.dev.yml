@@ -1,3 +1,6 @@
+# The local database, and nothing else: production runs against a managed one,
+# so nothing here describes it. `npm run db:start` brings this up, and the tests
+# and `npm run dev:relay` reach it at the address `.env` gives.
 services:
   postgres:
     image: docker.io/library/postgres:16-alpine
@@ -14,5 +17,6 @@ services:
       retries: 10
     ports:
       - "5432:5432"
+
 volumes:
   db:

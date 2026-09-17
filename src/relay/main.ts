@@ -50,6 +50,8 @@ export function createApp(): H3 {
 		if (cors !== false) return cors;
 	});
 
+	app.get('/ping', () => 'pong');
+
 	app.post('/auth/challenge', challengeHandler);
 	app.post('/auth/verify', verifyHandler);
 	app.get('/auth/me', getMeHandler, { middleware: [requireAuth] });

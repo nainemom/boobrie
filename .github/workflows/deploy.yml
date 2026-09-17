@@ -15,9 +15,8 @@ permissions:
   id-token: write
 
 jobs:
-  deploy:
-    name: pages
-    if: ${{ !contains(github.event.head_commit.message, 'ci-skip') }}
+  client:
+    name: client
     runs-on: ubuntu-latest
 
     environment:
@@ -27,9 +26,8 @@ jobs:
     env:
       CLIENT_PUBLIC_URL: ${{ vars.CLIENT_PUBLIC_URL }}
       CLIENT_RELAY_URL: ${{ vars.CLIENT_RELAY_URL }}
-      RELAY_DB_URL: postgresql://unused:unused@localhost:5432/unused
-      RELAY_JWT_SECRET: unused
-      LEFTHOOK: '0'
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+      JWT_SECRET: unused
 
     steps:
       - name: Checkout
@@ -77,3 +75,73 @@ jobs:
 
       - name: Push the release commit
         run: git push origin HEAD:${{ github.ref_name }} --tags
+
+  relay:
+    name: relay
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    environment:
+      name: production
+
+    env:
+      PAASTA_API_KEY: ${{ secrets.PAASTA_API_KEY }}
+      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
+      JWT_SECRET: unused
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Name the image
+        id: image
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image.outputs.ref }}
+          # The variable is the only source for this: an unset one interpolates
+          # to an empty string, and the build then fails at `EXPOSE` rather than
+          # shipping an image that listens somewhere `--port` below is not.
+          build-args: |
+            RELAY_PORT=${{ vars.RELAY_PORT }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install the Paasta CLI
+        run: |
+          curl -fsSL https://console.paasta.cloud/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Log in
+        run: paasta login --api-key
+
+      # `--port` because no source, and so no build config, reaches the platform
+      # this way: the image is the whole deploy.
+      - name: Deploy
+        run: |
+          paasta deploy \
+            --image "${{ steps.image.outputs.ref }}" \
+            --name "${{ vars.PAASTA_PROJECT_NAME }}" \
+            --port "${{ vars.RELAY_PORT }}" \
+            --billing payg \
+            --yes
+
+      - name: Report
+        run: paasta status "${{ vars.PAASTA_PROJECT_NAME }}"

@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateTable
 CREATE TABLE "pending_messages" (
     "id" TEXT NOT NULL,
@@ -49,4 +46,3 @@ CREATE UNIQUE INDEX "users_handle_key" ON "users"("handle");
 
 -- CreateIndex
 CREATE INDEX "sessions_address_idx" ON "sessions"("address");
-
