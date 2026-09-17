@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.5
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.4...v0.0.5)
+
+### 💅 Refactors
+
+- Sweep the sessions table, drop the presence endpoint ([#4](https://github.com/nainemom/boobrie/pull/4))
+
 ## v0.0.4
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.3...v0.0.4)
