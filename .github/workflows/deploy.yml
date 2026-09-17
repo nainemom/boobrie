@@ -26,8 +26,6 @@ jobs:
     env:
       CLIENT_PUBLIC_URL: ${{ vars.CLIENT_PUBLIC_URL }}
       CLIENT_RELAY_URL: ${{ vars.CLIENT_RELAY_URL }}
-      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
-      JWT_SECRET: unused
 
     steps:
       - name: Checkout
@@ -89,8 +87,6 @@ jobs:
 
     env:
       PAASTA_API_KEY: ${{ secrets.PAASTA_API_KEY }}
-      DATABASE_URL: postgresql://unused:unused@localhost:5432/unused
-      JWT_SECRET: unused
 
     steps:
       - name: Checkout

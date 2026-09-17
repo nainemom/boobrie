@@ -18,10 +18,8 @@ COPY src/relay ./src/relay
 
 RUN npm run db:generate-types
 
-# Deliberately down here, after both steps above: `npm ci` would skip the
-# devDependencies this image runs on (`tsx`, `prisma`), and `prisma.config.ts`
-# reads this to decide whether to insist on a real `DATABASE_URL` — which the
-# build has no business having, and the ENTRYPOINT's `migrate deploy` does.
+# Deliberately down here, after both steps above: set any earlier, `npm ci`
+# would skip the devDependencies this image runs on (`tsx`, `prisma`).
 ENV NODE_ENV=production
 # `tsx` and `prisma` are the project's own binaries, and nothing puts that
 # directory on the path — without this the start command cannot find them.
