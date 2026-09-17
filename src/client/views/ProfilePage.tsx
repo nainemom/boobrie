@@ -276,9 +276,6 @@ export function ProfilePage() {
 				)}
 			</PageBody>
 
-			{/* No navigation after logging out — dropping the identity is enough,
-			    the router sends us to the auth page on its own. */}
-
 			<PageActions>
 				{isMe ? (
 					<Button
