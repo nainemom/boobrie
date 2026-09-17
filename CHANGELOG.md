@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.8
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.7...v0.0.8)
+
+### 🤖 CI
+
+- Fix typo ([8744235](https://github.com/nainemom/boobrie/commit/8744235))
+
 ## v0.0.7
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.6...v0.0.7)
