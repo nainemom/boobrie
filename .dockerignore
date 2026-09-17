@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.github
+.vscode
+.claude
+.env
+*.local
+*.log
+src/client
+src/test
+index.html
+vite.config.ts
+vitest.config.ts
+src/relay/db/generated

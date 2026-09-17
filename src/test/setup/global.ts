@@ -9,7 +9,7 @@
  * from: whatever `npm run dev:relay` would connect to and listen on is what
  * these tests get.
  *
- * The database is the one `compose.yml` serves — a real Postgres, so the
+ * The database is the one `compose.dev.yml` serves — a real Postgres, so the
  * relay's raw SQL and its LISTEN/NOTIFY fanout are exercised against the thing
  * they run against in production. It is created on first use and never emptied.
  * Tests don't need it to be: each one signs up the people it needs, with fresh

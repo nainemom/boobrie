@@ -106,9 +106,9 @@ const siteMetadata = (): Plugin => ({
 		this.emitFile({
 			type: 'asset',
 			fileName: 'sitemap.xml',
-			// One entry, because there is one server-rendered page: the rewrite in
-			// `vercel.json` answers every path with this same shell, and the router
-			// picks the view client-side.
+			// One entry, because there is one page: the `404.html` copy the deploy
+			// makes answers every path with this same shell, and the router picks the
+			// view client-side.
 			source: `${[
 				'<?xml version="1.0" encoding="UTF-8"?>',
 				'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',

@@ -18,8 +18,13 @@ const schema = z.object({
 	 * lingers, at the cost of more writes. */
 	RELAY_HEARTBEAT_MS: durationMs(2_000),
 
-	RELAY_JWT_SECRET: z.string().min(1),
-	RELAY_DB_URL: z.url(),
+	RELAY_JWT_SECRET: z
+		.string()
+		.min(1)
+		.default('dev-only-insecure-secret-change-me'),
+	RELAY_DB_URL: z
+		.url()
+		.default('postgresql://unused:unused@localhost:5432/unused'),
 
 	/** Origins allowed to call the relay, space separated, as the list h3
 	 * wants. `*` — which is also the default — allows any, which is what a
