@@ -3,9 +3,10 @@
  *
  * Three things hang together here. Whether you look online is derived from the
  * connections the relay is holding, not from a flag anyone sets — so it has to
- * survive a pod dying without cleaning up. Being offered to a stranger is
- * opt-out, so the opt-out has to be honoured. And a profile anyone can read
- * without signing in had better disclose only what it means to.
+ * survive a pod dying without cleaning up, and the record of it has to be gone
+ * once nobody is heartbeating it. Being offered to a stranger is opt-out, so
+ * the opt-out has to be honoured. And a profile anyone can read without signing
+ * in had better disclose only what it means to.
  *
  * `POST /random` picks from everyone the relay can see, which is more than the
  * cast of any one test — so each of these tells it to skip the rest, via
@@ -16,9 +17,9 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { closeDb, db } from '@/relay/db/index.ts';
 import { env } from '@/relay/env.ts';
+import { sweepSessions } from '@/relay/services/messaging.ts';
 import type {
 	MeResponse,
-	PresenceResponse,
 	RandomMatchResponse,
 	UserResponse,
 } from '@/shared/protocol';
@@ -36,23 +37,30 @@ const presenceTtlMs = () => 3 * env.RELAY_HEARTBEAT_MS;
 /** Longer than the presence window, by any reading of it. */
 const LONG_AGO_MS = 5 * 60_000;
 
+/** How long to give a stream to report in, in heartbeats — whatever this relay
+ * was told a heartbeat is. A flat budget would pass under CI's two seconds and
+ * time out against a development `.env` carrying a longer one, which says
+ * nothing about the relay and everything about the number. */
+const beats = (count: number) => count * env.RELAY_HEARTBEAT_MS + 1_000;
+
 /** A connection record with no live socket behind it — how a pod that died
- * without cleaning up looks to every other pod. */
+ * without cleaning up looks to every other pod. Nothing is heartbeating it, so
+ * the relay's sweep takes it within a TTL: a test that stands one up has that
+ * long to get to its assertion. */
 const orphanedSession = (address: string, agoMs = 0) =>
 	db.session.create({
 		data: { address, createdAt: new Date(Date.now() - agoMs) },
 	});
 
-const presenceOf = async (address: string, token: string) =>
-	(await call<PresenceResponse>('GET', `/presence/${address}`, { token })).body
-		.online;
+const sessionsOf = (address: string) =>
+	db.session.count({ where: { address } });
 
 /**
  * Everyone the relay currently counts as online who isn't one of `ours` — what
  * `/random` has to be told to skip for its answer to be about this test.
  *
- * Only fresh connections: a stale one is already ignored by the endpoint, and
- * including the ones every past run left behind would grow this list for ever.
+ * Only fresh connections. `/random` ignores a stale one anyway, and a row on
+ * its way to the next sweep has no business lengthening an exclude list.
  */
 async function everyoneBut(...ours: string[]): Promise<string[]> {
 	const sessions = await db.session.findMany({
@@ -73,79 +81,96 @@ const offerFrom = async (token: string, ...ours: string[]) =>
 		})
 	).body.address;
 
-describe('whether somebody is online', () => {
-	it('is true while they are connected and false once they drop', async () => {
-		const alice = await login();
+describe('the record of who is connected', () => {
+	it('appears while they are connected and is gone once they drop', async () => {
 		const bob = await login();
 
-		expect(await presenceOf(bob.address, alice.token)).toBe(false);
+		expect(await sessionsOf(bob.address)).toBe(0);
 
 		const stream = await openStream(bob.token);
-		expect(await presenceOf(bob.address, alice.token)).toBe(true);
+		await waitFor(async () => (await sessionsOf(bob.address)) === 1);
 
-		// Dropping has to clear the connection record, or somebody who closed
-		// their tab would look online for ever.
+		// Dropping has to clear the record, or somebody who closed their tab would
+		// go on looking online until the sweep got to them.
 		await stream.close();
-		await waitFor(
-			async () =>
-				(await db.session.count({ where: { address: bob.address } })) === 0,
-		);
-		expect(await presenceOf(bob.address, alice.token)).toBe(false);
+		await waitFor(async () => (await sessionsOf(bob.address)) === 0);
 	});
 
-	it('ignores a connection that stopped reporting in', async () => {
-		const alice = await login();
-		const bob = await login();
-		await orphanedSession(bob.address, LONG_AGO_MS);
+	it(
+		'keeps somebody who is just sitting there from going stale',
+		async () => {
+			const bob = await login();
+			const stream = await openStream(bob.token);
+			await waitFor(async () => (await sessionsOf(bob.address)) === 1);
 
-		// Only the freshness of the heartbeat makes it safe to ignore the row.
-		expect(await presenceOf(bob.address, alice.token)).toBe(false);
-	});
-
-	it('keeps somebody who is just sitting there from going stale', async () => {
-		const bob = await login();
-		const stream = await openStream(bob.token);
-
-		// Backdate his connection record to just short of where presence would
-		// write him off. Nothing but the stream's own heartbeat can save it now.
-		const ttlMs = presenceTtlMs();
-		await db.session.updateMany({
-			where: { address: bob.address },
-			data: { createdAt: new Date(Date.now() - ttlMs * 0.9) },
-		});
-		expect(await presenceOf(bob.address, bob.token)).toBe(true);
-
-		// The stream touches its row on every heartbeat, which is the only reason
-		// presence stays true for somebody who never went anywhere.
-		await waitFor(async () => {
-			const [row] = await db.session.findMany({
+			// Backdate his record to just short of where the relay would write him
+			// off. Nothing but the stream's own heartbeat can save it now.
+			const ttlMs = presenceTtlMs();
+			await db.session.updateMany({
 				where: { address: bob.address },
+				data: { createdAt: new Date(Date.now() - ttlMs * 0.9) },
 			});
-			return Boolean(row) && Date.now() - row.createdAt.getTime() < ttlMs / 2;
-		});
 
-		expect(await presenceOf(bob.address, bob.token)).toBe(true);
-		await stream.close();
-	});
+			// The stream touches its row on every heartbeat, which is the only reason
+			// somebody who never went anywhere stays online.
+			await waitFor(async () => {
+				const [row] = await db.session.findMany({
+					where: { address: bob.address },
+				});
+				return Boolean(row) && Date.now() - row.createdAt.getTime() < ttlMs / 2;
+			}, beats(2));
 
-	it('holds one connection per account, not two', async () => {
+			await stream.close();
+		},
+		beats(3),
+	);
+
+	it('is one per account however many times they reconnect', async () => {
 		const bob = await login();
 		const first = await openStream(bob.token);
 		// Reconnecting while the old connection is still half-open must not leave
 		// two live streams — and two connection records — for one account.
 		const second = await openStream(bob.token);
-		await waitFor(
-			async () =>
-				(await db.session.count({ where: { address: bob.address } })) === 1,
-		);
+		await waitFor(async () => (await sessionsOf(bob.address)) === 1);
 
 		await second.close();
 		await first.close();
 	});
 
-	it('needs a session to ask', async () => {
-		expect((await call('GET', '/presence/someone')).status).toBe(401);
+	it('is swept away when the pod holding it never cleaned up', async () => {
+		const bob = await login();
+		await orphanedSession(bob.address, LONG_AGO_MS);
+		expect(await sessionsOf(bob.address)).toBe(1);
+
+		// Swept here rather than waited for: the relay runs this on a timer one
+		// TTL wide, and sitting through one says nothing `setInterval` hasn't
+		// already promised. Nothing is heartbeating that row and nothing ever
+		// will — the sweep is all that stands between this table and a row per pod
+		// that ever died.
+		await sweepSessions();
+
+		expect(await sessionsOf(bob.address)).toBe(0);
 	});
+
+	it(
+		'survives the sweep taking a live row out from under it',
+		async () => {
+			const bob = await login();
+			const stream = await openStream(bob.token);
+			await waitFor(async () => (await sessionsOf(bob.address)) === 1);
+
+			// What a sweep racing a slow heartbeat does. The connection is still up, so
+			// the next beat has to put the row back rather than leave them dark.
+			await db.session.deleteMany({ where: { address: bob.address } });
+			await waitFor(
+				async () => (await sessionsOf(bob.address)) === 1,
+				beats(2),
+			);
+
+			await stream.close();
+		},
+		beats(3),
+	);
 });
 
 describe('being offered somebody to talk to', () => {

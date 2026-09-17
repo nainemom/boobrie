@@ -144,12 +144,6 @@ export const messageParamsSchema = z.object({
 });
 export type MessageParams = z.infer<typeof messageParamsSchema>;
 
-/** `GET /presence/:address` params. */
-export const presenceParamsSchema = z.object({
-	address: z.string().min(1, 'address is required'),
-});
-export type PresenceParams = z.infer<typeof presenceParamsSchema>;
-
 /** A queued or freshly-sent message, as streamed over `GET /messages`. */
 export interface Message {
 	id: string;
@@ -157,12 +151,6 @@ export interface Message {
 	payload: string;
 	/** ISO-8601 timestamp. */
 	createdAt: string;
-}
-
-/** `GET /presence/:address` reply. */
-export interface PresenceResponse {
-	address: string;
-	online: boolean;
 }
 
 // --- Random match ----------------------------------------------------------
