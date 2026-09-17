@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.2
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.1...v0.0.2)
+
+### 🤖 CI
+
+- Deploy the client to pages and the relay to paasta ([#2](https://github.com/nainemom/boobrie/pull/2))
+
 ## v0.0.1
 
 
