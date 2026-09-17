@@ -62,12 +62,52 @@
 		@apply select-none;
 	}
 
+	/* The document never scrolls. Every screen is exactly `#root` tall and does
+	 * its scrolling in a pane of its own, so a scrollbar out here can only mean
+	 * something has escaped — on a phone, that something is the keyboard pushing
+	 * the page up and taking the navbar off the top of the screen with it.
+	 * `overscroll-none` turns off the rubber band and pull-to-refresh that come
+	 * with a scrollable document. */
+	html,
+	body {
+		@apply h-full overflow-hidden overscroll-none;
+	}
+
 	body {
 		@apply bg-neutral-700 sm:p-6;
 	}
+
+	/* The app surface. On a phone it *is* the window, so its height is the
+	 * visual viewport — the slice of screen the keyboard isn't covering —
+	 * measured by `main.tsx` into `--viewport-height`, with `100dvh` standing in
+	 * until that first runs. The padding is the notch and the home indicator;
+	 * the bottom one is spent as the keyboard rises over it, because `env()`
+	 * goes on reporting an inset for an indicator that is no longer on screen,
+	 * and left alone that reads as a gap between the composer and the keyboard.
+	 *
+	 * `overflow-hidden`, not `auto`: if a page ever outgrows this box that's a
+	 * bug in the page, and scrolling the whole app is the one way of showing it
+	 * that breaks the navbars. */
 	#root {
-		@apply mx-auto max-w-xl h-dvh sm:max-h-[calc(100dvh-3rem)] bg-neutral-50 sm:rounded-sm shadow-xl overflow-auto;
+		@apply mx-auto max-w-xl bg-neutral-50 sm:rounded-sm shadow-xl overflow-hidden;
 		contain: layout;
+		height: var(--viewport-height, 100dvh);
+		padding: env(safe-area-inset-top) env(safe-area-inset-right)
+			max(0px, env(safe-area-inset-bottom) - var(--keyboard-inset, 0px))
+			env(safe-area-inset-left);
+	}
+
+	/* From `sm` up it stops being the window and becomes a card floating in the
+	 * body's `p-6` — the browser owns the edges of the screen again, so the safe
+	 * areas aren't ours to pad. The `3rem` is that padding, top and bottom; the
+	 * height is still the visual viewport, which is what keeps the card off the
+	 * keyboard on a phone held sideways (wide enough for this breakpoint, still
+	 * short enough for the keyboard to matter). */
+	@variant sm {
+		#root {
+			height: calc(var(--viewport-height, 100dvh) - 3rem);
+			padding: 0;
+		}
 	}
 	/* ::view-transition-old(root) {
     animation: 180ms ease both vt-leave;

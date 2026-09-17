@@ -18,6 +18,44 @@ if (domain.origin !== allowdDomain.origin) {
 	);
 }
 
+/**
+ * Keeps `--viewport-height` on the height of the *visual* viewport — the slice
+ * of the window the on-screen keyboard isn't covering — so `#root` is never
+ * taller than what's actually on screen: navbar against the top edge, composer
+ * against the bottom one or against the top of the keyboard, and nothing to
+ * scroll in between.
+ *
+ * `interactive-widget=resizes-content` in `index.html` already arranges that on
+ * Android, where the layout viewport shrinks around the keyboard and `100dvh`
+ * shrinks with it. iOS ignores the key: there the layout viewport keeps its full
+ * height and the browser pans the page instead, which is what walks the navbar
+ * off the top of the screen. Measuring gives the same answer on both, so this
+ * doesn't care which one it's on.
+ */
+function trackViewport() {
+	const viewport = window.visualViewport;
+	if (!viewport) return;
+
+	const measure = () => {
+		if (viewport.scale > 1.01) return;
+		const { style } = document.documentElement;
+		style.setProperty('--viewport-height', `${viewport.height}px`);
+		style.setProperty(
+			'--keyboard-inset',
+			`${Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)}px`,
+		);
+	};
+
+	measure();
+	viewport.addEventListener('resize', measure);
+	// The keyboard opening can pan the visual viewport as well as shrink it —
+	// same event to react to, since the inset above is measured from where the
+	// viewport currently sits.
+	viewport.addEventListener('scroll', measure);
+}
+
+trackViewport();
+
 createRoot(root).render(
 	<StrictMode>
 		<App />

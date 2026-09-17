@@ -11,9 +11,17 @@ export const MessageList: FC<{ messages: StoredMessage[] }> = ({
 }) => {
 	const lastRef = useRef<HTMLLIElement>(null);
 
-	// Jump to the newest message on load and whenever one arrives or is sent.
+	// Jump to the newest message on load and whenever one arrives or is sent —
+	// and again whenever the viewport changes size, which is the keyboard
+	// opening. That shortens the list's window from the bottom, and without this
+	// the message being replied to slides out of sight behind the composer.
 	useEffect(() => {
-		if (messages.length > 0) lastRef.current?.scrollIntoView({ block: 'end' });
+		if (messages.length === 0) return;
+		const toBottom = () => lastRef.current?.scrollIntoView({ block: 'end' });
+		toBottom();
+		const viewport = window.visualViewport;
+		viewport?.addEventListener('resize', toBottom);
+		return () => viewport?.removeEventListener('resize', toBottom);
 	}, [messages]);
 
 	return (
