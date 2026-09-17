@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.3
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.2...v0.0.3)
+
+### 🤖 CI
+
+- Fix deploy workflow env reading ([35b9c40](https://github.com/nainemom/boobrie/commit/35b9c40))
+
 ## v0.0.2
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.1...v0.0.2)
