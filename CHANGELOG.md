@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.9
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.8...v0.0.9)
+
+### 🤖 CI
+
+- Update job names ([be1d508](https://github.com/nainemom/boobrie/commit/be1d508))
+
 ## v0.0.8
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.7...v0.0.8)
