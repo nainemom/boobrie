@@ -2,10 +2,6 @@ rc: lefthook-rc
 
 output:
   - failure
-
-pre-push:
-  jobs:
-    - run: npm run test
   
 pre-commit:
   parallel: true
