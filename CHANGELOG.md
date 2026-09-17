@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.7
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.6...v0.0.7)
+
+### 🤖 CI
+
+- Handle bump in different job ([2e75a25](https://github.com/nainemom/boobrie/commit/2e75a25))
+
 ## v0.0.6
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.5...v0.0.6)
