@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.0.10
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.9...v0.0.10)
+
+### 🚀 Enhancements
+
+- Improve profile ui ([#5](https://github.com/nainemom/boobrie/pull/5))
+
+### 🤖 CI
+
+- Bump version by my account ([3a6372e](https://github.com/nainemom/boobrie/commit/3a6372e))
+- Fix bump environment ([e2de7c8](https://github.com/nainemom/boobrie/commit/e2de7c8))
+
 ## v0.0.9
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.8...v0.0.9)
