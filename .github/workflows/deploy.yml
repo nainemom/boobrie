@@ -18,9 +18,6 @@ jobs:
   bump-version:
     name: Bump Version
     runs-on: ubuntu-latest
-    # The push below carries a PAT, and unlike GITHUB_TOKEN a PAT push does
-    # re-fire this workflow. Skip the run our own release commit caused, or
-    # every release bumps forever.
     if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
 
     environment:
@@ -62,7 +59,7 @@ jobs:
           npm run lint:fix # fix any formatting issues in package*.json
           git add --all
           VERSION=$(node -p "require('./package.json').version")
-          git commit -m "chore(release): v$VERSION"
+          git commit -m "chore(release): v$VERSION [skip ci]"
           git tag "v$VERSION"
           {
             echo "tag=v$VERSION"
