@@ -23,6 +23,9 @@ jobs:
     # every release bumps forever.
     if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
 
+    environment:
+      name: production
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
