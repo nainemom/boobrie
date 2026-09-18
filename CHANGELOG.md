@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.12
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.11...v0.0.12)
+
+### 🤖 CI
+
+- Skip version bump commit from ci ([#7](https://github.com/nainemom/boobrie/pull/7))
+
 ## v0.0.11
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.10...v0.0.11)
