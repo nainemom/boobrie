@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.11
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.10...v0.0.11)
+
+### 🤖 CI
+
+- Deploy the bump commit ([#6](https://github.com/nainemom/boobrie/pull/6))
+
 ## v0.0.10
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.9...v0.0.10)
