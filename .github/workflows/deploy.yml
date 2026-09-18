@@ -26,6 +26,13 @@ jobs:
     environment:
       name: production
 
+    # The release commit does not exist when this run starts, so the deploy
+    # jobs cannot reach it through `github.sha` — that is the commit *before*
+    # the bump. They check out this sha instead.
+    outputs:
+      sha: ${{ steps.bump.outputs.sha }}
+      tag: ${{ steps.bump.outputs.tag }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,6 +55,7 @@ jobs:
           git config user.email "nainemom@gmail.com"
 
       - name: Bump Version
+        id: bump
         run: |
           npx changelogen --clean --release --noAuthors --no-commit --no-tag --output CHANGELOG.md
           npm i --package-lock-only # hacky way to push package.json version into lock file
@@ -56,6 +64,10 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           git commit -m "chore(release): v$VERSION"
           git tag "v$VERSION"
+          {
+            echo "tag=v$VERSION"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Push
         id: push
@@ -63,7 +75,9 @@ jobs:
 
       - name: Report
         id: report
-        run: node -p "require('./package.json').version"
+        run: |
+          echo "Released ${{ steps.bump.outputs.tag }} as ${{ steps.bump.outputs.sha }}" \
+            >> "$GITHUB_STEP_SUMMARY"
 
   deploy-client:
     name: Deploy Client
@@ -79,9 +93,16 @@ jobs:
       CLIENT_RELAY_URL: ${{ vars.CLIENT_RELAY_URL }}
 
     steps:
+      # An empty ref makes checkout fall back to the commit that triggered the
+      # run, which is the one before the bump. Fail loudly instead of shipping
+      # the wrong build.
+      - name: Require the release commit
+        run: test -n "${{ needs.bump-version.outputs.sha }}"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.bump-version.outputs.sha }}
           fetch-depth: 0
 
       - name: Setup Node
@@ -130,12 +151,30 @@ jobs:
       PAASTA_API_KEY: ${{ secrets.PAASTA_API_KEY }}
 
     steps:
+      # An empty ref makes checkout fall back to the commit that triggered the
+      # run, which is the one before the bump. Fail loudly instead of shipping
+      # the wrong build.
+      - name: Require the release commit
+        run: test -n "${{ needs.bump-version.outputs.sha }}"
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
 
       - name: Name the image
         id: image
-        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        env:
+          # Not GITHUB_SHA: that is the commit that triggered the run, one
+          # before the release commit this job builds.
+          SHA: ${{ needs.bump-version.outputs.sha }}
+          TAG: ${{ needs.bump-version.outputs.tag }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          {
+            echo "ref=$IMAGE:${SHA::7}"
+            echo "versioned=$IMAGE:$TAG"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -152,7 +191,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.image.outputs.ref }}
+          tags: |
+            ${{ steps.image.outputs.ref }}
+            ${{ steps.image.outputs.versioned }}
           # The variable is the only source for this: an unset one interpolates
           # to an empty string, and the build then fails at `EXPOSE` rather than
           # shipping an image that listens somewhere `--port` below is not.
