@@ -18,12 +18,17 @@ jobs:
   bump-version:
     name: Bump Version
     runs-on: ubuntu-latest
+    # The push below carries a PAT, and unlike GITHUB_TOKEN a PAT push does
+    # re-fire this workflow. Skip the run our own release commit caused, or
+    # every release bumps forever.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.BUMP_PAT }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -36,8 +41,8 @@ jobs:
 
       - name: Setup Git user
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Amir Momenian"
+          git config user.email "nainemom@gmail.com"
 
       - name: Bump Version
         run: |
@@ -74,7 +79,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.bump.outputs.sha }}
           fetch-depth: 0
 
       - name: Setup Node
