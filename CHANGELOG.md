@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.13
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.12...v0.0.13)
+
+### 📦 Build
+
+- Add typecheck hook before commit ([#8](https://github.com/nainemom/boobrie/pull/8))
+
 ## v0.0.12
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.11...v0.0.12)
