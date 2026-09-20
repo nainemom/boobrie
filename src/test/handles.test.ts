@@ -24,6 +24,9 @@ import { testIdentity } from '@/test/setup/crypto';
 // reclaims idle sockets by itself, so this is tidiness rather than a leak fixed.
 afterAll(closeDb);
 
+/** Every verify names a device; nothing here turns on which. */
+const SOME_DEVICE = 'some-device';
+
 /** Answer a challenge and offer `handle` with the answer — signing up and
  * claiming a name in the one request the relay takes them in. */
 const verifyWith = (
@@ -31,7 +34,12 @@ const verifyWith = (
 	handle?: string | null,
 ) =>
 	call<{ error: string }>('POST', '/auth/verify', {
-		body: { challengeToken, response: bytesToBase58(nonce), handle },
+		body: {
+			challengeToken,
+			response: bytesToBase58(nonce),
+			handle,
+			deviceId: SOME_DEVICE,
+		},
 	});
 
 const handleOf = async (token: string) =>

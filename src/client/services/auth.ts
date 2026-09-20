@@ -1,5 +1,6 @@
+import { liveQuery } from 'dexie';
 import { ofetch } from 'ofetch';
-import { db } from '@/client/db';
+import { db, deviceIdFor, type StoredKeyPair } from '@/client/db';
 import { env } from '@/client/env';
 import { clearLocalKeyCache } from '@/client/services/chat';
 import { unsubscribeFromPush } from '@/client/services/push';
@@ -48,16 +49,37 @@ const api = ofetch.create({
 
 const KEY_ID = 'keyPair';
 
-const saveKeyPair = (keyPair: CryptoKeyPair): Promise<string> =>
-	db.auth.put(keyPair, KEY_ID);
+const saveKeyPair = (
+	keyPair: CryptoKeyPair,
+	address: string,
+): Promise<string> => db.auth.put({ keyPair, address }, KEY_ID);
 
-const loadKeyPair = (): Promise<CryptoKeyPair | undefined> =>
+const loadKeyPair = (): Promise<StoredKeyPair | undefined> =>
 	db.auth.get(KEY_ID);
 
 const deleteKeyPair = (): Promise<void> => db.auth.delete(KEY_ID);
 
+/** How a sign-out reaches the other tabs: the one key-pair slot is shared, so
+ * writing to it is the announcement, and Dexie carries it to every tab. A tab
+ * loses its session when the slot is emptied, and equally when another account
+ * logs in over it — a browser holds one account, newest login wins. */
+liveQuery(() => db.auth.get(KEY_ID)).subscribe({
+	next: (stored) => {
+		const identity = authState.state.identity;
+		if (!identity || stored?.address === identity.address) return;
+		clearLocalKeyCache();
+		authState.set({ identity: null, session: null });
+	},
+	error: (error) => console.error('Sign-out watch failed:', error),
+});
+
+/** Run the relay handshake and put the resulting session in state. */
 async function authenticate(
 	keyPair: CryptoKeyPair,
+	/** Logging in, not coming back — takes the account from the device that had
+	 * it. Restoring never claims, or the laptop left at home would sign the phone
+	 * out on being opened. */
+	claim: boolean,
 	mnemonic?: string,
 	handle?: string,
 ): Promise<Identity> {
@@ -66,6 +88,7 @@ async function authenticate(
 		address: await addressOf(keyPair),
 		mnemonic,
 	};
+	const deviceId = await deviceIdFor(identity.address);
 	const { challengeToken, box } = await api<ChallengeResponse>(
 		'/auth/challenge',
 		{
@@ -76,7 +99,13 @@ async function authenticate(
 	const nonce = await openSeal(identity.keyPair.privateKey, box);
 	const authResult = await api<VerifyResponse>('/auth/verify', {
 		method: 'POST',
-		body: { challengeToken, response: bytesToBase58(nonce), handle },
+		body: {
+			challengeToken,
+			response: bytesToBase58(nonce),
+			handle,
+			deviceId,
+			claim,
+		},
 	});
 	const session = {
 		token: authResult.token,
@@ -100,25 +129,41 @@ export async function login({
 	handle,
 }: LoginParams): Promise<Identity> {
 	const keyPair = await mnemonicToKeyPair(mnemonic);
-	const identity = await authenticate(keyPair, mnemonic, handle);
-	await saveKeyPair(keyPair);
+	// Typing the words in is the deliberate act that moves an account.
+	const identity = await authenticate(keyPair, true, mnemonic, handle);
+	await saveKeyPair(keyPair, identity.address);
 	return identity;
 }
 
+/** Sign out deliberately: everything {@link relinquish} does, plus telling the
+ * relay to stop pushing to this account at all. */
 export async function logout(): Promise<void> {
-	// Unsubscribe while the session is still live — the relay call needs the
-	// current token, and it's gone the moment `set` below clears it.
+	// While the session is still live: the relay call needs the current token.
 	try {
-		await unsubscribeFromPush();
 		await editPushSubscription({ pushSubscription: null });
 	} catch (error) {
 		console.error('Failed to remove push subscription:', error);
 	}
-	// Delete the key before clearing state: clearing state remounts the auth
-	// modal's session restorer immediately, and it must find no key to load —
-	// otherwise it races this delete and can kick off a fresh authenticate()
-	// right as we're logging out.
-	await deleteKeyPair();
+	await relinquish();
+}
+
+/** Sign out because the account was signed in somewhere else. The relay's push
+ * subscription stays: it belongs to the device that took the account now. */
+export async function relinquish(): Promise<void> {
+	// Not awaited: `serviceWorker.ready` inside never settles when no worker
+	// activates for this scope, and a sign-out must not hang there.
+	void unsubscribeFromPush().catch((error) =>
+		console.error('Failed to remove push subscription:', error),
+	);
+
+	// Before clearing state, which remounts the session restorer: it must find no
+	// key, or it re-authenticates on the way out.
+	try {
+		await deleteKeyPair();
+	} catch (error) {
+		// The session goes regardless; a key that outlives it only fails a restore.
+		console.error('Failed to delete the saved key pair:', error);
+	}
 	clearLocalKeyCache();
 	authState.set({ identity: null, session: null });
 }
@@ -132,10 +177,10 @@ export function restore(): Promise<boolean> {
 	if (!restoring) {
 		restoring = (async () => {
 			try {
-				const keyPair = await loadKeyPair().catch(() => undefined);
-				if (!keyPair) return false;
+				const stored = await loadKeyPair().catch(() => undefined);
+				if (!stored?.keyPair) return false;
 				try {
-					await authenticate(keyPair);
+					await authenticate(stored.keyPair, false);
 					return true;
 				} catch {
 					await deleteKeyPair();

@@ -38,6 +38,10 @@ export const ROLES = ['user', 'admin'] as const;
 
 export type Role = (typeof ROLES)[number];
 
+/** What a session token says. Every field is checked before a handler sees it. */
 export interface AuthClaims {
+	/** `/auth/challenge` signs a ticket for anyone who asks; only verify mints this. */
+	typ: 'session';
 	address: string;
+	deviceId: string;
 }

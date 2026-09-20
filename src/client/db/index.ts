@@ -35,9 +35,18 @@ export interface EncryptedMessageRow {
 	payload: EncryptedPayload;
 }
 
+/** The key pair this browser is signed in with, and whose it is. The address is
+ * stored so a tab can tell when another account has taken the one slot. */
+export interface StoredKeyPair {
+	keyPair: CryptoKeyPair;
+	address: string;
+}
+
 export const db = new Dexie('boobrie') as Dexie & {
-	auth: Table<CryptoKeyPair, string>;
+	auth: Table<StoredKeyPair, string>;
 	messages: Table<EncryptedMessageRow, string>;
+	/** This browser's id on an account, keyed by the account's address. */
+	device: Table<string, string>;
 };
 
 db.version(1).stores({
@@ -46,3 +55,22 @@ db.version(1).stores({
 	// inside the encrypted `payload`, so nothing else can be an index.
 	messages: 'id, owner',
 });
+
+db.version(2).stores({
+	auth: '',
+	messages: 'id, owner',
+	device: '',
+});
+
+/** How the relay tells this browser from another holding the same account. Per
+ * account, and random, so it cannot link two accounts to one browser. */
+export function deviceIdFor(owner: string): Promise<string> {
+	// In a transaction, or two tabs opening together each mint one.
+	return db.transaction('rw', db.device, async () => {
+		const known = await db.device.get(owner);
+		if (known) return known;
+		const minted = crypto.randomUUID();
+		await db.device.put(minted, owner);
+		return minted;
+	});
+}

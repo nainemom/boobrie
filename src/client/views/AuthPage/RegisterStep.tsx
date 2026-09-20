@@ -21,13 +21,6 @@ const signUpSchema = z.object({ handle: handleSchema });
 
 type SignUpForm = z.infer<typeof signUpSchema>;
 
-/** True for a 409 from the relay — used to tell "handle already taken" apart
- * from other failures on the actual signup call. */
-function isConflict(err: unknown): boolean {
-	const e = err as { status?: number; statusCode?: number } | null;
-	return e?.status === 409 || e?.statusCode === 409;
-}
-
 export function RegisterStep() {
 	const flow = useAuthFlow();
 	const [phrase, setPhrase] = useState('');
@@ -90,9 +83,7 @@ const RegisterForm: FC<{
 		} catch (err) {
 			setError('handle', {
 				type: 'manual',
-				message: isConflict(err)
-					? 'That handle is already taken.'
-					: errorMessage(err),
+				message: errorMessage(err),
 			});
 		}
 	};

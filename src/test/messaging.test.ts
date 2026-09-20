@@ -18,7 +18,9 @@ import { closeDb, db } from '@/relay/db/index.ts';
 import { createApp } from '@/relay/main.ts';
 import { stopWatching, watchMessages } from '@/relay/services/messaging.ts';
 import { decrypt, encrypt } from '@/shared/crypto';
+import { generateMnemonic } from '@/shared/mnemonic';
 import type { EncryptedPayload } from '@/shared/types';
+import { sleep } from '@/shared/utils.ts';
 import {
 	call,
 	login,
@@ -195,6 +197,93 @@ describe('when the person you are writing to is not there', () => {
 
 		await alice.openApp();
 		expect(await bob.sees(alice, 'written while offline')).toHaveLength(1);
+	});
+});
+
+describe('with the app open in more than one tab', () => {
+	// Tabs share one database, so each one's outbox watcher sees every other one's
+	// pending message. Only one of them may act on it.
+
+	/** By id — a new one per stream, so these say *which* as well as how many. */
+	const connectionsOf = async (who: Person) =>
+		(
+			await db.session.findMany({
+				where: { address: who.address },
+				select: { id: true },
+			})
+		).map((row) => row.id);
+
+	it('sends what you typed once, not once per open tab', async () => {
+		const alice = await signUp();
+		const bob = await signUp();
+		await alice.openTab();
+		// Kept waiting at the relay, where copies can be counted before they go.
+		bob.closeApp();
+		await waitOffline(bob);
+
+		await alice.send(bob, 'hello, once');
+		await waitFor(async () => (await waitingFor(bob)) === 1);
+		// Her outbox is drained, so a second tab would have acted by now.
+		await waitFor(
+			async () => (await alice.conversation(bob))[0]?.status === 'sent',
+		);
+		await sleep(500);
+		expect(await waitingFor(bob)).toBe(1);
+
+		await bob.openApp();
+		// Through `sees` first: opening resolves when the connection does, before
+		// anything queued has crossed it, and an empty conversation would satisfy
+		// the length check below.
+		await bob.sees(alice, 'hello, once');
+		expect(await bob.conversation(alice)).toHaveLength(1);
+	});
+
+	it('sends what you typed in the tab that is not driving', async () => {
+		const alice = await signUp();
+		const bob = await signUp();
+		const otherTab = await alice.openTab();
+
+		// Only the tab holding the lock talks to the relay, so a message written
+		// anywhere else reaches it through the database they share.
+		await otherTab.send(bob, 'typed in the second tab');
+
+		expect(await bob.sees(alice, 'typed in the second tab')).toHaveLength(1);
+	});
+
+	it('holds one connection to the relay between them', async () => {
+		const alice = await signUp();
+		const [first] = await connectionsOf(alice);
+
+		await alice.openTab();
+		await alice.openTab();
+
+		// Three tabs, one stream, the same one throughout: the relay keeps a single
+		// stream per address, so tabs opening their own would evict each other.
+		await sleep(500);
+		expect(await connectionsOf(alice)).toEqual([first]);
+	});
+
+	it('signs the other tabs out when another account logs in', async () => {
+		const alice = await signUp();
+
+		// One browser holds one account: the tabs share a single key-pair slot, and
+		// the newest login owns it. Without this both tabs go on working until a
+		// reload, which silently comes back as whoever logged in last.
+		await alice.openTab(generateMnemonic());
+
+		await alice.waitSignedOut();
+	});
+
+	it('signs the other tabs out when one of them signs out', async () => {
+		const alice = await signUp();
+		// Opening it waits for a connection, so there is a session here to lose.
+		const otherTab = await alice.openTab();
+
+		await alice.logOut();
+
+		// Signing out deletes the key pair, which every tab shares — one that missed
+		// it would carry on streaming on a session nobody kept.
+		await otherTab.waitSignedOut();
 	});
 });
 

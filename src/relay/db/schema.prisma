@@ -23,6 +23,10 @@ model User {
 	role         String   @default("user")
 	handle       String?  @unique
 	discoverable Boolean  @default(true)
+	/// The one device this account is signed in on; any other is turned away and
+	/// signs itself out. Set by logging in, which is how an account moves. Null
+	/// only for an account predating this column, and claimed on its next verify.
+	activeDeviceId String? @map("active_device_id")
 	createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
 	@@map("users")

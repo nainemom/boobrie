@@ -52,6 +52,9 @@ export const verifySchema = z.object({
 	challengeToken: z.string().min(1, 'challengeToken and response are required'),
 	response: z.string().min(1, 'challengeToken and response are required'),
 	handle: handleSchema.optional(),
+	deviceId: z.string().min(1, 'deviceId is required'),
+	/** Somebody typed the words in, which takes the account. Restoring never does. */
+	claim: z.boolean().default(false),
 });
 export type VerifyRequest = z.infer<typeof verifySchema>;
 

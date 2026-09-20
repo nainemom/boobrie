@@ -20,7 +20,8 @@ import type { AuthClaims, Role } from '@/shared/types';
 import { db } from '../db/index.ts';
 import { env } from '../env.ts';
 import { signToken, verifyToken } from './jwt.ts';
-import { getSubscription, vapidPublicKey } from './push.ts';
+import { disconnectOtherDevices } from './messaging.ts';
+import { deleteSubscription, getSubscription, vapidPublicKey } from './push.ts';
 
 const NONCE_BYTES = 32;
 
@@ -55,21 +56,46 @@ const buildMe = async (address: string): Promise<MeResponse | null> => {
 	};
 };
 
-/** Middleware: verify the session token from the `Authorization` header and
- * stash the claims on `event.context.claim`. Throws 401 when it fails. */
-export const requireAuth = defineMiddleware((event) => {
+/** Read from the account, not the token: a login elsewhere moves the account
+ * while this device's token stays valid, and that gap is the thing enforced. */
+const isActiveDevice = async (
+	address: string,
+	deviceId: string,
+): Promise<boolean> => {
+	const user = await db.user.findUnique({
+		where: { address },
+		select: { activeDeviceId: true },
+	});
+	// No user record at all: nothing to contradict.
+	return !user || user.activeDeviceId === deviceId;
+};
+
+/**
+ * Middleware: verify the session token and stash its claims on
+ * `event.context.claim`. A bad or non-session token is a 401, which the client
+ * answers by re-authenticating; a good one from a device that no longer holds
+ * the account is a 409, which re-authenticating would not help.
+ */
+export const requireAuth = defineMiddleware(async (event) => {
 	const header = event.req.headers.get('authorization');
 	const token = header?.startsWith('Bearer ') ? header.slice(7) : '';
-	let claim: AuthClaims;
+	let claim: Partial<AuthClaims>;
 	try {
-		claim = verifyToken<AuthClaims>(token);
+		claim = verifyToken<Partial<AuthClaims>>(token);
 	} catch {
 		throw new HTTPError({ status: 401, message: 'unauthorized' });
 	}
-	if (!claim.address) {
+	const { typ, address, deviceId } = claim;
+	if (typ !== 'session' || !address || !deviceId) {
 		throw new HTTPError({ status: 401, message: 'invalid token' });
 	}
-	event.context.claim = claim;
+	if (!(await isActiveDevice(address, deviceId))) {
+		throw new HTTPError({
+			status: 409,
+			message: 'account is signed in on another device',
+		});
+	}
+	event.context.claim = { typ, address, deviceId };
 });
 
 export const challengeHandler = defineHandler(async (event) => {
@@ -98,10 +124,8 @@ export const challengeHandler = defineHandler(async (event) => {
 });
 
 export const verifyHandler = defineHandler(async (event) => {
-	const { challengeToken, response, handle } = await readValidatedBody(
-		event,
-		verifySchema,
-	);
+	const { challengeToken, response, handle, deviceId, claim } =
+		await readValidatedBody(event, verifySchema);
 
 	let claims: ChallengeClaims;
 	try {
@@ -141,7 +165,15 @@ export const verifyHandler = defineHandler(async (event) => {
 	}
 
 	const inserted = await db.user.createMany({
-		data: [{ address: claims.address, handle: handle || null }],
+		data: [
+			{
+				address: claims.address,
+				handle: handle || null,
+				// A first login is a claim whatever the caller said: there is no
+				// earlier device for it to be taking anything from.
+				activeDeviceId: deviceId,
+			},
+		],
 		skipDuplicates: true,
 	});
 
@@ -152,8 +184,46 @@ export const verifyHandler = defineHandler(async (event) => {
 		});
 	}
 
+	// A claim takes the account from whichever device had it; an account with no
+	// device on record is adopted by whoever verifies first. One update settles
+	// both, so `moved.count` means "this verify is the one that moved it".
+	if (inserted.count === 0) {
+		const moved = await db.user.updateMany({
+			where: {
+				address: claims.address,
+				// Spelled out: `not` does not match a null column.
+				...(claim
+					? {
+							OR: [
+								{ activeDeviceId: null },
+								{ activeDeviceId: { not: deviceId } },
+							],
+						}
+					: { activeDeviceId: null }),
+			},
+			data: { activeDeviceId: deviceId },
+		});
+
+		// So notifications follow the account, not the device that just lost it.
+		if (claim && moved.count > 0) {
+			await Promise.all([
+				deleteSubscription(claims.address),
+				disconnectOtherDevices(claims.address, deviceId),
+			]);
+		}
+	}
+
 	return {
-		token: signToken({ address: claims.address }, env.RELAY_SESSION_TTL_MS),
+		// `typ` tells this from the challenge ticket it was traded for, which is
+		// signed with the same key and handed to anybody who asks.
+		token: signToken(
+			{
+				typ: 'session',
+				address: claims.address,
+				deviceId,
+			} satisfies AuthClaims,
+			env.RELAY_SESSION_TTL_MS,
+		),
 		expiresAt: Date.now() + env.RELAY_SESSION_TTL_MS,
 		created: inserted.count > 0,
 	} satisfies VerifyResponse;
