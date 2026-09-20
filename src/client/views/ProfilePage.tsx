@@ -150,7 +150,7 @@ export function ProfilePage() {
 							<Link
 								className={twMerge(
 									'text-sm shrink text-neutral-500 overflow-hidden truncate max-w-full',
-									peer.isLoading && 'animate-ping',
+									peer.isLoading && 'animate-pulse',
 								)}
 								to={url}
 							>
@@ -198,7 +198,7 @@ export function ProfilePage() {
 						<p
 							className={twMerge(
 								'text-sm shrink',
-								peer.isLoading && 'animate-ping',
+								peer.isLoading && 'animate-pulse',
 								peer.data?.handle ? 'text-neutral-500' : 'text-neutral-300',
 							)}
 						>
@@ -222,7 +222,7 @@ export function ProfilePage() {
 					<p
 						className={twMerge(
 							'text-sm shrink',
-							peer.isLoading && 'animate-ping',
+							peer.isLoading && 'animate-pulse',
 							peer.data?.createdAt ? 'text-neutral-500' : 'text-neutral-300',
 						)}
 					>
