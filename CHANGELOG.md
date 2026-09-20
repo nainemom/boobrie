@@ -1,6 +1,21 @@
 # Changelog
 
 
+## v0.0.15
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.14...v0.0.15)
+
+### 🚀 Enhancements
+
+- Add app version meta ([4ebcdc0](https://github.com/nainemom/boobrie/commit/4ebcdc0))
+- Improve profile loading state ([4c6f397](https://github.com/nainemom/boobrie/commit/4c6f397))
+
+### 🩹 Fixes
+
+- Wrong animation while loading profile ([d06ca91](https://github.com/nainemom/boobrie/commit/d06ca91))
+- Give desktop app installs the round icon ([00510c6](https://github.com/nainemom/boobrie/commit/00510c6))
+- Auto refresh to the latest version ([fed82d8](https://github.com/nainemom/boobrie/commit/fed82d8))
+
 ## v0.0.14
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.13...v0.0.14)
