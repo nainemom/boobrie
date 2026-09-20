@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.16
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.15...v0.0.16)
+
+### 🩹 Fixes
+
+- Avatar vertical align in conversation list ([13c8e64](https://github.com/nainemom/boobrie/commit/13c8e64))
+
 ## v0.0.15
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.14...v0.0.15)
