@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.14
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.13...v0.0.14)
+
+### 🚀 Enhancements
+
+- Sign an account in on one device at a time ([#9](https://github.com/nainemom/boobrie/pull/9))
+
 ## v0.0.13
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.12...v0.0.13)
