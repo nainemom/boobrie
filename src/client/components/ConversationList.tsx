@@ -21,7 +21,10 @@ export const ConversationList: FC<{
 						href={`/i/${conversation.peer}`}
 						className="rounded-sm h-16 flex items-center gap-3 pe-3 hover:bg-neutral-100 focus:bg-neutral-100 group border border-transparent focus-visible:border-neutral-800 outline-0"
 					>
-						<Avatar address={conversation.peer} className="size-16 shrink-0" />
+						<Avatar
+							address={conversation.peer}
+							className="size-16 shrink-0 mb-3"
+						/>
 						<div className="flex min-w-0 w-full flex-col leading-tight">
 							<span className="truncate font-medium text-neutral-800">
 								{truncateAddress(conversation.peer)}
