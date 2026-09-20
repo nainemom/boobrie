@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import unpluginFavicons from '@anolilab/unplugin-favicons/vite';
 import { serwist } from '@serwist/vite';
@@ -28,6 +29,23 @@ const site = {
 	 * `CLIENT_PUBLIC_URL=https://x.com/` can't produce `https://x.com//og.png`. */
 	origin: env.CLIENT_PUBLIC_URL.replace(/\/+$/, ''),
 };
+
+/** The same mark, prepared for Android's adaptive icons: painted onto an opaque
+ * square and scaled to 80%, so the disc sits inside the central safe zone no
+ * mask is allowed to crop. It's composed here by nesting `logo.svg` inside a
+ * wrapper — rather than checked in as a second drawing that would have to be
+ * re-exported every time the first one changes. */
+const logoSvg = readFileSync(LOGO, 'utf8');
+const maskableLogo = Buffer.from(
+	[
+		'<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">',
+		`<rect width="512" height="512" fill="${site.color}"/>`,
+		// The drawing, minus its XML prologue — that's only legal at the top of a
+		// document, and would make the wrapper unparseable.
+		`<g transform="translate(51.2 51.2) scale(0.8)">${logoSvg.slice(logoSvg.indexOf('<svg'))}</g>`,
+		'</svg>',
+	].join(''),
+);
 
 /** The share card: `src/arts/og.svg`, exported by hand to `public/og.png` at
  * Open Graph's 1200x630 and checked in — nothing in the build rasterises it.
@@ -168,17 +186,12 @@ export default defineConfig(({ command }) => {
 					// these are flattened onto `background` already, because any
 					// transparency in a home-screen icon renders there as black.
 					appleIcon: { source: LOGO },
-					// Android's default is a transparent square, which the maskable
-					// crop below turns into notches of bare wallpaper — so flatten it.
-					// The 10% inset pulls the mark inside the central 80% that a mask
-					// is guaranteed not to crop; the logo's disc spans the full canvas
-					// and would otherwise be shaved by every non-circular mask.
-					android: {
-						source: LOGO,
-						background: true,
-						transparent: false,
-						offset: 10,
-					},
+					// These become the manifest's `purpose: "any"` icons, and "any"
+					// means "draw it as it is". A desktop install takes one straight
+					// into the launcher without a mask, so anything opaque here is a
+					// hard-edged square on the taskbar. Left transparent, it's the same
+					// round mark the tab shows; Android gets the maskable set below.
+					android: { source: LOGO },
 				},
 				favicons: {
 					appName: site.name,
@@ -197,11 +210,13 @@ export default defineConfig(({ command }) => {
 					// status bar — which for this light, top-docked navbar means the
 					// clock sitting on top of it.
 					appleStatusBarStyle: 'default',
-					// Tags the Android icons `purpose: "any maskable"`, which is what
-					// stops Android framing them in a white blob of its own. It only
-					// holds up because the `android` entry above makes them opaque and
-					// safe-zoned.
-					manifestMaskable: true,
+					// Renders a *second* Android set from `maskableLogo`, tagged
+					// `purpose: "maskable"` — which is what stops Android framing the
+					// icon in a white blob of its own. Handing it a source rather than
+					// `true` is the point: `true` would relabel the icons above as
+					// `"any maskable"`, and one image can't be both a bare mark and a
+					// full-bleed square without being wrong somewhere.
+					manifestMaskable: maskableLogo,
 				},
 			}),
 			// The card Slack, iMessage, WhatsApp, LinkedIn and the rest draw when
