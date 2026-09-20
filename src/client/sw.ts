@@ -1,7 +1,7 @@
 /**
  * The service worker.
  *
- * Three jobs, one file:
+ * Four jobs, one file:
  *   1. Precache — every built file (shell, bundles, styles, icons) is stored on
  *      install, so a cold start with no network at all still boots the app.
  *   2. Runtime caching — one rule, drawn along the app/data line:
@@ -13,7 +13,9 @@
  *          routed at all, so it goes straight to the network, untouched and
  *          uncached. No connection means no answer, which is what we want:
  *          chat data is either live or absent, never stale.
- *   3. Web Push — turn the relay's offline nudge into a notification, and focus
+ *   3. Updates — reload open windows onto a new build as soon as one takes
+ *      over, so nobody has to force-refresh to get the latest version.
+ *   4. Web Push — turn the relay's offline nudge into a notification, and focus
  *      (or open) the app when it's clicked.
  *
  * The push payload is metadata only (see {@link PushPayload}); the SW can't
@@ -92,6 +94,61 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// --- Updates ---------------------------------------------------------------
+
+/**
+ * Whether this worker is replacing an earlier one, rather than being the first
+ * to install. Read during `install`, the one moment it can be: there
+ * `registration.active` is still the worker about to be replaced, and on a
+ * first visit it is null.
+ *
+ * Losing it — the worker being torn down between the two events — degrades to
+ * not reloading, which is where this started, so it does not need to survive.
+ */
+let replacing = false;
+
+self.addEventListener('install', () => {
+	replacing = Boolean(self.registration.active);
+});
+
+/**
+ * Reload every open window onto the new build.
+ *
+ * `skipWaiting` and `clientsClaim` put this worker in charge of pages that are
+ * still *running* the build it replaced — code only changes at a navigation,
+ * so those pages keep the old version until one happens. And a plain reload
+ * isn't enough on its own: it's answered from the precache before the browser
+ * has finished checking whether `sw.js` changed, so the new build only shows
+ * up on the reload *after* that. Hence force-refreshing, which skips the
+ * worker entirely and was the only reliable way through.
+ *
+ * Doing it from here rather than listening for `controllerchange` in the page
+ * keeps it to the one file that knows a handover happened, and costs the app
+ * no boot code at all.
+ */
+self.addEventListener('activate', (event) => {
+	if (!replacing) return;
+	event.waitUntil(
+		(async () => {
+			// `navigate()` is only allowed on clients this worker already controls.
+			// Serwist claims them in its own `activate` handler, inside a
+			// `waitUntil` that hasn't necessarily settled by the time this one runs;
+			// claiming again is free and settles the ordering.
+			await self.clients.claim();
+			for (const client of await self.clients.matchAll({ type: 'window' })) {
+				// Deliberately not awaited. Each navigation is answered by this
+				// worker's own fetch handler, which the browser holds back until this
+				// `activate` has settled — so awaiting them here would leave both
+				// sides waiting on the other. Starting them is enough.
+				void client.navigate(client.url).catch(() => {
+					// A client mid-navigation, or one the browser declines to move: it
+					// reaches the new build on its own at the next one.
+				});
+			}
+		})(),
+	);
+});
 
 // --- Web Push --------------------------------------------------------------
 
