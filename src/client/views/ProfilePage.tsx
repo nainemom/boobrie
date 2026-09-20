@@ -10,6 +10,7 @@ import useSWRMutation from 'swr/mutation';
 import { twMerge } from 'tailwind-merge';
 import { Link, useParams } from 'wouter';
 import { isAnonymous } from '@/shared/auth';
+import { sleep } from '@/shared/utils';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { FormField } from '../components/FormField';
@@ -68,7 +69,10 @@ export function ProfilePage() {
 	// claimed once, at sign-up, and there's no endpoint to change it after.
 	const peer = useSWR(
 		!address ? null : (['user', address] as const),
-		([, peerAddress]) => getUser(peerAddress),
+		async ([, peerAddress]) => {
+			await sleep(1000);
+			return await getUser(peerAddress);
+		},
 		{
 			revalidateOnFocus: false,
 			revalidateOnReconnect: false,
@@ -145,13 +149,10 @@ export function ProfilePage() {
 				</FormField>
 
 				{isMe && (
-					<FormField label="URL" htmlFor="share-url">
+					<FormField label="URL" htmlFor="share-url" loading={peer.isLoading}>
 						<div className="flex items-center gap-1">
 							<Link
-								className={twMerge(
-									'text-sm shrink text-neutral-500 overflow-hidden truncate max-w-full',
-									peer.isLoading && 'animate-pulse',
-								)}
+								className="text-sm shrink text-neutral-500 overflow-hidden truncate max-w-full"
 								to={url}
 							>
 								{truncateLink(url)}
@@ -193,32 +194,37 @@ export function ProfilePage() {
 					</div>
 				</FormField>
 
-				<FormField label="Handle" htmlFor="copy-handle">
+				<FormField
+					label="Handle"
+					htmlFor="copy-handle"
+					loading={peer.isLoading}
+				>
 					<div className="flex items-center gap-1">
 						<p
 							className={twMerge(
 								'text-sm shrink',
-								peer.isLoading && 'animate-pulse',
 								peer.data?.handle ? 'text-neutral-500' : 'text-neutral-300',
 							)}
 						>
-							{peer.data?.handle || '---'}
+							{peer.data?.handle || 'No handle set'}
 						</p>
-						<Button
-							id="copy-handle"
-							variant="transparent"
-							size={6}
-							onClick={() => copyHandleToClipboard(peer.data?.handle ?? '')}
-							iconOnly
-							className="shrink-0"
-							disabled={!peer.data?.handle}
-						>
-							<HandleCopyIcon size={14} />
-						</Button>
+						{peer.data?.handle && (
+							<Button
+								id="copy-handle"
+								variant="transparent"
+								size={6}
+								onClick={() => copyHandleToClipboard(peer.data?.handle ?? '')}
+								iconOnly
+								className="shrink-0"
+								disabled={!peer.data?.handle}
+							>
+								<HandleCopyIcon size={14} />
+							</Button>
+						)}
 					</div>
 				</FormField>
 
-				<FormField label="Joined">
+				<FormField label="Joined" loading={peer.isLoading}>
 					<p
 						className={twMerge(
 							'text-sm shrink',
@@ -243,6 +249,7 @@ export function ProfilePage() {
 								subscribed,
 								me?.vapidPublicKey,
 							)}
+							loading={!me}
 						>
 							<Toggle
 								id="push"
@@ -265,6 +272,7 @@ export function ProfilePage() {
 								label="Discoverable"
 								error={discoverableMutation.error?.message}
 								info="When on, others can be matched with you in “Talk to a stranger”. Turn it off to stay out of the pool."
+								loading={!me}
 							>
 								<Toggle
 									checked={me.discoverable}

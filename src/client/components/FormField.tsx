@@ -1,4 +1,4 @@
-import { ChevronRightIcon, InfoIcon } from 'lucide-react';
+import { ChevronRightIcon, InfoIcon, LoaderIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 import { twJoin } from 'tailwind-merge';
 import { tv, type VariantProps } from 'tailwind-variants';
@@ -17,6 +17,7 @@ export const FormField: FC<
 		children?: ReactNode;
 		className?: string;
 		vertical?: boolean;
+		loading?: boolean;
 	} & VariantProps<typeof formField>
 > = ({
 	htmlFor,
@@ -27,6 +28,7 @@ export const FormField: FC<
 	info,
 	className,
 	vertical,
+	loading,
 }) => {
 	return (
 		<div className={formField({ className })}>
@@ -52,11 +54,16 @@ export const FormField: FC<
 				)}
 				<div
 					className={twJoin(
+						'min-h-6',
 						label ? 'shrink' : 'contents',
 						vertical ? 'w-full' : 'overflow-hidden max-w-2/3',
 					)}
 				>
-					{children}
+					{loading ? (
+						<LoaderIcon size={16} className="animate-spin text-neutral-400" />
+					) : (
+						children
+					)}
 				</div>
 			</div>
 			{error && (
