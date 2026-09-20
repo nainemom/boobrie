@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 import openGraph from 'vite-plugin-open-graph';
+import pkg from './package.json';
 import { env } from './src/client/env.ts';
 
 const LOGO = 'src/client/public/logo.svg';
@@ -48,6 +49,7 @@ const tokens: Record<string, string> = {
 	'%SITE_TITLE%': site.title,
 	'%SITE_DESCRIPTION%': site.description,
 	'%CLIENT_PUBLIC_URL%': site.origin,
+	'%APP_VERSION%': pkg.version,
 };
 
 /**
