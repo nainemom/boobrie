@@ -23,11 +23,12 @@ import {
 	waitFor as waitForRender,
 } from '@testing-library/react';
 import 'fake-indexeddb/auto';
+import { IDBFactory } from 'fake-indexeddb';
 import { type H3, serve } from 'h3';
 import { fetch as nodeFetch } from 'node-fetch-native/node';
 import { ofetch } from 'ofetch';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
-import { db as local, type StoredMessage } from '@/client/db';
+import { deviceIdFor, db as local, type StoredMessage } from '@/client/db';
 import { env } from '@/client/env';
 import { authState } from '@/client/services/auth';
 import {
@@ -54,8 +55,8 @@ import { testIdentity } from './crypto.ts';
  *
  * Two settings differ from the app's, and both matter. An error response is
  * something these tests assert on rather than something to throw, and it's
- * never a reason to retry — the app's own policy retries a 409 three times over
- * nine seconds, which would be nine seconds per test that checks a conflict.
+ * never a reason to retry — the app retries a 500 three times over nine
+ * seconds, which would be nine seconds for every test that provokes one.
  *
  * It also goes out through Node rather than the browser-ish `fetch` the flows
  * run under, which logs every non-2xx response it sees — and a good many of
@@ -148,12 +149,14 @@ export async function solveChallenge(
 export const someHandle = (): string =>
 	`h${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
-/**
- * Register and log in a fresh identity, doing the real challenge/response: ask
- * for a challenge, open the sealed nonce with the private key, send it back.
- */
-export async function login(handle?: string): Promise<TestUser> {
-	const identity = await testIdentity();
+/** Log in as somebody who already exists, from the device of your choosing.
+ * Naming one other than this browser's stands for somebody typing the same words
+ * into a different browser, and takes the account from wherever it was. */
+export async function logInAs(
+	identity: Identity,
+	deviceId: string,
+	handle?: string,
+): Promise<string> {
 	const { challengeToken, nonce } = await solveChallenge(identity);
 
 	const verified = await call<VerifyResponse>('POST', '/auth/verify', {
@@ -161,13 +164,22 @@ export async function login(handle?: string): Promise<TestUser> {
 			challengeToken,
 			response: bytesToBase58(nonce),
 			handle,
+			deviceId,
+			claim: true,
 		},
 	});
 	if (verified.status !== 200) {
 		throw new Error(`verify failed: ${JSON.stringify(verified.body)}`);
 	}
+	return verified.body.token;
+}
 
-	return { ...identity, token: verified.body.token };
+/** Register and log in a fresh identity, from this browser — so the session it
+ * returns is one the app's own engine can go on using. */
+export async function login(handle?: string): Promise<TestUser> {
+	const identity = await testIdentity();
+	const deviceId = await deviceIdFor(identity.address);
+	return { ...identity, token: await logInAs(identity, deviceId, handle) };
 }
 
 /**
@@ -248,7 +260,7 @@ async function* frames(
 
 /** Open `GET /messages` and collect the frames as they arrive — the same
  * framing the client's own reader handles, so what's asserted is what a browser
- * would actually receive. */
+ * would actually receive. Which device is asking rides in the token. */
 export async function openStream(
 	token: string,
 	baseURL?: string,
@@ -344,8 +356,80 @@ export function signOut(): void {
 	authState.set({ identity: null, session: null });
 }
 
+// --- the Web Locks API ------------------------------------------------------
+
+/**
+ * happy-dom has no lock manager, and the sync engine picks the driving tab with
+ * one — so without this every copy of the client below would lead.
+ *
+ * Exclusive by name, granted in order, released when the callback settles,
+ * withdrawable while queued: the whole of what the app asks of it.
+ */
+function installWebLocks(): void {
+	type Grant = (lock: unknown) => Promise<unknown>;
+	/** The back of each name's queue — whoever asks next waits on it. */
+	const tails = new Map<string, Promise<unknown>>();
+
+	const request = async (
+		name: string,
+		second: LockOptions | Grant,
+		third?: Grant,
+	): Promise<unknown> => {
+		const { signal } = third ? (second as LockOptions) : {};
+		const granted = third ?? (second as Grant);
+
+		const ahead = tails.get(name) ?? Promise.resolve();
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		tails.set(
+			name,
+			ahead.then(() => held),
+		);
+
+		try {
+			await (signal
+				? Promise.race([
+						ahead,
+						new Promise<never>((_, reject) => {
+							const fail = () =>
+								reject(new DOMException('lock request aborted', 'AbortError'));
+							if (signal.aborted) fail();
+							else signal.addEventListener('abort', fail, { once: true });
+						}),
+					])
+				: ahead);
+		} catch (error) {
+			// Withdrawn before it was granted — it still has to let go of its place,
+			// or everyone behind it waits on a lock nobody holds.
+			release();
+			throw error;
+		}
+
+		try {
+			return await granted({ name, mode: 'exclusive' });
+		} finally {
+			release();
+		}
+	};
+
+	Object.defineProperty(navigator, 'locks', {
+		value: { request } as LockManager,
+		configurable: true,
+	});
+}
+
+installWebLocks();
+
 beforeEach(async () => {
-	await Promise.all([local.messages.clear(), local.auth.clear()]);
+	// `device` too: inheriting the last test's id would be a browser that had been
+	// here before, not the fresh one this file promises.
+	await Promise.all([
+		local.messages.clear(),
+		local.auth.clear(),
+		local.device.clear(),
+	]);
 	clearLocalKeyCache();
 	// Several tests provoke an error the app is meant to log and carry on from.
 	// Capturing it keeps the run's output clean and lets those tests assert the
@@ -383,13 +467,28 @@ afterEach(() => {
  */
 const copies: ClientCopy[] = [];
 
-async function bootClient() {
+/**
+ * Boot a copy of the client against `storage` — the IndexedDB it will call its
+ * own. A device gets one nobody else has; a second tab is handed the one its
+ * first tab already uses, which is what makes them tabs.
+ *
+ * Dexie reads the factory when the database object is constructed, and each copy
+ * constructs its own on import, so swapping it around the import is enough.
+ * Imported here rather than at the top of the file, where it would load before
+ * `fake-indexeddb/auto` and latch on to a global that does not exist yet.
+ */
+async function bootClient(storage: IDBFactory) {
 	vi.resetModules();
+	const { default: Dexie } = await import('dexie');
+	const shared = Dexie.dependencies.indexedDB;
+	Dexie.dependencies.indexedDB = storage;
 	const [auth, chat, sync] = await Promise.all([
 		import('@/client/services/auth'),
 		import('@/client/services/chat'),
 		import('@/client/services/sync'),
-	]);
+	]).finally(() => {
+		Dexie.dependencies.indexedDB = shared;
+	});
 	// Idempotent per copy: from here the engine follows this copy's auth state.
 	sync.startSync();
 	const copy = { auth, chat, sync };
@@ -422,6 +521,14 @@ export interface Person {
 	closeApp(): void;
 	/** Open it again, and wait until it reports itself connected. */
 	openApp(): Promise<void>;
+	/** As the settings screen does: not closing the app, and not undone by
+	 * opening it again. */
+	logOut(): Promise<void>;
+	/** Wait until this copy is no longer signed in, however that came about. */
+	waitSignedOut(): Promise<void>;
+	/** As a second tab: another copy of the client over the database they share.
+	 * Signs in as the same person unless given somebody else's words. */
+	openTab(mnemonic?: string): Promise<Person>;
 }
 
 const addressOf = (who: Person | string) =>
@@ -442,15 +549,17 @@ async function read<T>(
 }
 
 /**
- * Create an account and sign in — the real thing: twelve words, a key pair
- * derived from them, and the relay's challenge answered with the private key.
+ * Open the app on a copy of the client of its own and sign in with `mnemonic`.
+ * A device when it gets its own `storage`, another tab of one when it is handed
+ * the storage a tab already has — which is the whole of the difference.
  */
-export async function signUp(handle?: string): Promise<Person> {
-	const client: ClientCopy = await bootClient();
-	const identity = await client.auth.login({
-		mnemonic: generateMnemonic(),
-		handle,
-	});
+async function openClient(
+	mnemonic: string,
+	handle?: string,
+	storage: IDBFactory = new IDBFactory(),
+): Promise<Person> {
+	const client: ClientCopy = await bootClient(storage);
+	const identity = await client.auth.login({ mnemonic, handle });
 	let session = client.auth.authState.state.session;
 
 	const person: Person = {
@@ -484,12 +593,23 @@ export async function signUp(handle?: string): Promise<Person> {
 				(connected) => connected === true,
 			);
 		},
+		openTab: (words = mnemonic) => openClient(words, undefined, storage),
+		logOut: () => client.auth.logout(),
+		waitSignedOut: () =>
+			waitFor(() => client.auth.authState.state.identity === null),
 	};
 	// Signing in already started the engine; wait until it says so, so a test
-	// that sends immediately isn't racing the connection.
+	// that sends immediately isn't racing it. A second tab reports the leading
+	// tab's connection, having none of its own.
 	await read(
 		() => client.sync.useSyncStatus(),
 		(connected) => connected === true,
 	);
 	return person;
+}
+
+/** Create an account and sign in: twelve words nobody else holds, and everything
+ * {@link openClient} does with them. */
+export async function signUp(handle?: string): Promise<Person> {
+	return openClient(generateMnemonic(), handle);
 }

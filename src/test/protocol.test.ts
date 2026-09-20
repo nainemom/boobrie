@@ -66,9 +66,11 @@ describe('what the relay will not accept', () => {
 		expect(challengeSchema.safeParse({}).success).toBe(false);
 	});
 
-	it('requires both halves of the challenge response', () => {
-		const valid = { challengeToken: 't', response: 'r' };
-		expect(verifySchema.parse(valid)).toEqual(valid);
+	it('requires both halves of the challenge response, and a device', () => {
+		const valid = { challengeToken: 't', response: 'r', deviceId: 'd' };
+		// Off unless asked for: a device that does not say it is logging in must not
+		// take the account off whoever has it.
+		expect(verifySchema.parse(valid)).toEqual({ ...valid, claim: false });
 		// A handle is optional on verify — it's only passed on first login.
 		expect(verifySchema.parse({ ...valid, handle: 'amir' }).handle).toBe(
 			'amir',
@@ -76,8 +78,16 @@ describe('what the relay will not accept', () => {
 		expect(verifySchema.safeParse({ ...valid, handle: 'Amir' }).success).toBe(
 			false,
 		);
-		expect(verifySchema.safeParse({ challengeToken: 't' }).success).toBe(false);
-		expect(verifySchema.safeParse({ response: 'r' }).success).toBe(false);
+		expect(
+			verifySchema.safeParse({ challengeToken: 't', deviceId: 'd' }).success,
+		).toBe(false);
+		expect(
+			verifySchema.safeParse({ response: 'r', deviceId: 'd' }).success,
+		).toBe(false);
+		// Without one the relay could not tell a reconnect from a login.
+		expect(
+			verifySchema.safeParse({ challengeToken: 't', response: 'r' }).success,
+		).toBe(false);
 	});
 
 	it('requires a recipient and a payload to send a message', () => {

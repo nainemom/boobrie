@@ -48,6 +48,9 @@ import { testIdentity } from '@/test/setup/crypto';
 // reclaims idle sockets by itself, so this is tidiness rather than a leak fixed.
 afterAll(closeDb);
 
+/** Every verify names a device; nothing here turns on which. */
+const SOME_DEVICE = 'some-device';
+
 /** Whether the relay holds an account for this address. Scoped rather than
  * counted: the database keeps everything every run has ever created. */
 const accountExists = async (address: string) =>
@@ -117,9 +120,9 @@ describe('creating an account', () => {
 		// This is the whole point of keeping a key instead of the words: a
 		// compromised page can act as you while the tab is open, but cannot walk
 		// away with the account.
-		expect(stored?.privateKey.extractable).toBe(false);
+		expect(stored?.keyPair.privateKey.extractable).toBe(false);
 		await expect(
-			crypto.subtle.exportKey('jwk', stored?.privateKey as CryptoKey),
+			crypto.subtle.exportKey('jwk', stored?.keyPair.privateKey as CryptoKey),
 		).rejects.toThrow();
 	});
 
@@ -127,7 +130,7 @@ describe('creating an account', () => {
 		const mnemonic = generateMnemonic();
 		await login({ mnemonic });
 		const stored = await local.auth.get('keyPair');
-		const keys = Object.keys(stored ?? {});
+		const keys = Object.keys(stored?.keyPair ?? {});
 		expect(keys).not.toContain('mnemonic');
 		for (const word of mnemonic.split(' ')) expect(keys).not.toContain(word);
 	});
@@ -310,7 +313,11 @@ describe('what the relay refuses at the door', () => {
 		// Bob intercepts Alice's challenge and cannot open it, so cannot answer.
 		await expect(openSeal(bob.keyPair.privateKey, box)).rejects.toThrow();
 		const { status } = await call('POST', '/auth/verify', {
-			body: { challengeToken, response: bytesToBase58(new Uint8Array(32)) },
+			body: {
+				challengeToken,
+				response: bytesToBase58(new Uint8Array(32)),
+				deviceId: SOME_DEVICE,
+			},
 		});
 		expect(status).toBe(401);
 	});
@@ -341,6 +348,7 @@ describe('what the relay refuses at the door', () => {
 			body: {
 				challengeToken: wrong.challengeToken,
 				response: bytesToBase58(wrong.nonce),
+				deviceId: SOME_DEVICE,
 			},
 		});
 		expect(rejected.status).toBe(401);
@@ -354,6 +362,7 @@ describe('what the relay refuses at the door', () => {
 					body: {
 						challengeToken: short.challengeToken,
 						response: bytesToBase58(short.nonce.slice(0, 16)),
+						deviceId: SOME_DEVICE,
 					},
 				})
 			).status,
@@ -367,7 +376,7 @@ describe('what the relay refuses at the door', () => {
 		const { status, body } = await call<{ error: string }>(
 			'POST',
 			'/auth/verify',
-			{ body: { challengeToken, response: '0OIl' } },
+			{ body: { challengeToken, response: '0OIl', deviceId: SOME_DEVICE } },
 		);
 		expect(status).toBe(400);
 		expect(body.error).toBe('response is not valid base58');
@@ -383,6 +392,7 @@ describe('what the relay refuses at the door', () => {
 			body: {
 				challengeToken: `${header}.${payload}.forged`,
 				response: bytesToBase58(nonce),
+				deviceId: SOME_DEVICE,
 			},
 		});
 		expect(status).toBe(401);
@@ -410,6 +420,7 @@ describe('what the relay refuses at the door', () => {
 				body: {
 					challengeToken: notAChallenge,
 					response: bytesToBase58(nonce),
+					deviceId: SOME_DEVICE,
 				},
 			},
 		);
@@ -429,7 +440,13 @@ describe('what the relay refuses at the door', () => {
 		const { status, body } = await call<{ error: string }>(
 			'POST',
 			'/auth/verify',
-			{ body: { challengeToken: expired, response: bytesToBase58(nonce) } },
+			{
+				body: {
+					challengeToken: expired,
+					response: bytesToBase58(nonce),
+					deviceId: SOME_DEVICE,
+				},
+			},
 		);
 		expect(status).toBe(401);
 		expect(body.error).toBe('challenge expired or invalid');
@@ -440,7 +457,11 @@ describe('what the relay refuses at the door', () => {
 		const solve = async () => {
 			const { challengeToken, nonce } = await solveChallenge(identity);
 			return call<VerifyResponse>('POST', '/auth/verify', {
-				body: { challengeToken, response: bytesToBase58(nonce) },
+				body: {
+					challengeToken,
+					response: bytesToBase58(nonce),
+					deviceId: SOME_DEVICE,
+				},
 			});
 		};
 
@@ -491,6 +512,35 @@ describe('the session token', () => {
 				})
 			).status,
 		).toBe(401);
+	});
+
+	it('refuses a challenge ticket presented as a session', async () => {
+		const user = await registerUser();
+
+		// `/auth/challenge` signs a ticket for anybody who asks, naming whatever
+		// address they name. Only `typ` stands between that and being them.
+		const { body: ticket } = await call<ChallengeResponse>(
+			'POST',
+			'/auth/challenge',
+			{ body: { address: user.address } },
+		);
+
+		const { status, body } = await call<{ error: string }>('GET', '/auth/me', {
+			token: ticket.challengeToken,
+		});
+		expect(status).toBe(401);
+		expect(body.error).toBe('invalid token');
+	});
+
+	it('refuses a session that names no device', async () => {
+		const user = await registerUser();
+
+		// Everything a session has but the device — without which the relay cannot
+		// tell the one holding the account from the one that lost it.
+		const { status } = await call('GET', '/auth/me', {
+			token: signToken({ typ: 'session', address: user.address }, 60_000),
+		});
+		expect(status).toBe(401);
 	});
 
 	it('refuses an expired one, and one with no address', async () => {

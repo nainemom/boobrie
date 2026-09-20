@@ -39,7 +39,7 @@ const api = ofetch.create({
 	onResponseError: [restoreOn401],
 	retry: 3,
 	retryDelay: 3000,
-	retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
+	retryStatusCodes: [408, 425, 429, 500, 502, 503, 504],
 });
 
 /** A separate client for the long-lived `GET /messages` SSE stream: it hands the
@@ -80,6 +80,10 @@ export interface MessageStreamHandlers {
 	 * relay ended it cleanly — and a reconnect is already scheduled. Never
 	 * fires after {@link MessageStream.close} was called explicitly. */
 	onClose?: () => void;
+	/** The account is signed in on another device, so the relay will not open a
+	 * stream for this one. Schedules no reconnect: retrying would only be refused
+	 * again, and signing out locally is all that is left. */
+	onDisplaced?: () => void;
 	/** Either paired with `onClose` (a connection-level failure) or standalone
 	 * (a single unparseable message frame; the stream reads on regardless). */
 	onError?: (error: unknown) => void;
@@ -124,6 +128,12 @@ export const streamMessages = (
 		} catch (error) {
 			// ofetch throws on a non-2xx response, a network failure, or the abort.
 			if (controller.signal.aborted) return;
+			// Signed in on another device — the only 409 a request carrying a session
+			// can get, since `requireAuth` is the one place that raises one.
+			if ((error as { status?: number } | null)?.status === 409) {
+				handlers.onDisplaced?.();
+				return;
+			}
 			handlers.onError?.(error);
 			handlers.onClose?.();
 			scheduleReconnect();
@@ -164,6 +174,12 @@ export const streamMessages = (
 			if (controller.signal.aborted) return;
 			handlers.onError?.(error);
 		}
+
+		// Not if this stream was closed on purpose. Aborting usually makes the read
+		// reject, which the catch above swallows — but a body that ends cleanly at
+		// the same moment leaves the loop through `done` instead, and `close()`
+		// would be followed by an `onClose` it promises never to send.
+		if (controller.signal.aborted) return;
 
 		// Reached whether the relay ended the stream cleanly or the read loop
 		// threw — either way the connection is gone and worth reopening.

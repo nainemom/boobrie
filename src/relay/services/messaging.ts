@@ -18,6 +18,11 @@
  * so the listener owns its connection lifecycle — it reconnects, re-LISTENs,
  * and replays the durable queue to every held stream afterwards, since any
  * announcement fired while it was deaf is gone.
+ *
+ * An account streams on one device at a time: nothing syncs history, so two
+ * would each end up with a share of a conversation and neither with the whole of
+ * it. Which device is recorded on the account and enforced by `requireAuth`
+ * ({@link file://./auth.ts}); all that is left here is the disconnect.
  */
 
 import {
@@ -45,7 +50,12 @@ const CHANNEL = 'chat';
 /** How long a session counts as "online" without a heartbeat touching it. */
 const PRESENCE_TTL_MS = env.RELAY_HEARTBEAT_MS * 3;
 
-const connections = new Map<string, ReturnType<typeof createEventStream>>();
+/** The streams this pod holds, by address — with the device each belongs to, so
+ * a claim can tell the one it is displacing from the one that made it. */
+const connections = new Map<
+	string,
+	{ stream: ReturnType<typeof createEventStream>; deviceId: string }
+>();
 
 const toMessage = (row: PendingMessage): Message => ({
 	id: row.id,
@@ -97,10 +107,32 @@ const startSweeping = (): void => {
 	run();
 };
 
-/** Announce a message id on the `chat` channel so the recipient's pod loads and
- * delivers it. Only the id travels — NOTIFY payloads are capped at 8 KB. */
-const announce = async (recipient: string, id: string): Promise<void> => {
-	await db.$executeRaw`select pg_notify(${CHANNEL}, ${JSON.stringify({ recipient, id })})`;
+/** What travels on the `chat` channel: a message to go and fetch, or an account
+ * one device has taken from another. */
+type Announcement =
+	| { recipient: string; id: string }
+	| { claimed: string; by: string };
+
+const announce = async (announcement: Announcement): Promise<void> => {
+	await db.$executeRaw`select pg_notify(${CHANNEL}, ${JSON.stringify(announcement)})`;
+};
+
+/** Close a stream nobody is waiting on. Closing a socket the client already
+ * abandoned rejects, and neither caller is anywhere a rejection can go. */
+const release = (stream: ReturnType<typeof createEventStream>): void => {
+	void stream
+		.close()
+		.catch((err) => log('warn', 'closing a retired stream failed', err));
+};
+
+/** Drop the stream any *other* device of this account holds, wherever it is
+ * connected. Not a courtesy: a held stream keeps this address's one slot below,
+ * so until it goes the device that lost the account is still handed its mail. */
+export const disconnectOtherDevices = async (
+	address: string,
+	deviceId: string,
+): Promise<void> => {
+	await announce({ claimed: address, by: deviceId });
 };
 
 /** Nudge an offline recipient with a web push (best-effort). */
@@ -118,14 +150,22 @@ const handleNotification = async (msg: {
 	payload?: string;
 }): Promise<void> => {
 	if (msg.channel !== CHANNEL || !msg.payload) return;
-	let announced: { recipient: string; id: string };
+	let announced: Announcement;
 	try {
 		announced = JSON.parse(msg.payload);
 	} catch {
 		return;
 	}
-	const stream = connections.get(announced.recipient);
-	if (!stream) return;
+
+	if ('claimed' in announced) {
+		// Let the displaced one go; it learns why when it comes back and gets 409.
+		const held = connections.get(announced.claimed);
+		if (held && held.deviceId !== announced.by) release(held.stream);
+		return;
+	}
+
+	const held = connections.get(announced.recipient);
+	if (!held) return;
 
 	// Only the id was announced; load the row now (it may already be gone if the
 	// recipient read it via another path — that's fine, we just skip).
@@ -135,21 +175,21 @@ const handleNotification = async (msg: {
 	if (!row) return;
 
 	try {
-		await stream.push(JSON.stringify(toMessage(row)));
+		await held.stream.push(JSON.stringify(toMessage(row)));
 	} catch {
 		// The stream may have just closed; the row stays queued as the backstop.
 	}
 };
 
 const deliverQueued = async (address: string): Promise<void> => {
-	const stream = connections.get(address);
-	if (!stream) return;
+	const held = connections.get(address);
+	if (!held) return;
 	const queued = await db.pendingMessage.findMany({
 		where: { recipient: address },
 		orderBy: { createdAt: 'asc' },
 	});
 	for (const row of queued) {
-		await stream.push(JSON.stringify(toMessage(row)));
+		await held.stream.push(JSON.stringify(toMessage(row)));
 	}
 };
 
@@ -254,20 +294,25 @@ export const stopWatching = async (): Promise<void> => {
 };
 
 export const streamMessagesHandler = defineHandler(async (event) => {
+	// Both guaranteed by `requireAuth`, which also checked the device.
 	const address = event.context.claim?.address || '';
+	const deviceId = event.context.claim?.deviceId || '';
+
 	const stream = createEventStream(event);
 
-	// One live stream per address on this pod: retire any predecessor first.
-	while (connections.has(address)) {
-		await connections.get(address)?.close();
-		await sleep(500);
-	}
-
-	connections.set(address, stream);
+	// Before the slot is taken, so a failure cannot leave the address spoken for
+	// by a stream no teardown will come back for.
 	const session = await db.session.create({
 		data: { address },
 		select: { id: true },
 	});
+
+	// One live stream per address on this pod, and this is now it. Taken before
+	// the predecessor is closed: its teardown checks whether the slot is still
+	// its own, so there is nothing to wait for.
+	const predecessor = connections.get(address)?.stream;
+	connections.set(address, { stream, deviceId });
+	if (predecessor) release(predecessor);
 
 	void stream.pushComment('connected');
 	const heartbeat = setInterval(() => {
@@ -289,7 +334,9 @@ export const streamMessagesHandler = defineHandler(async (event) => {
 
 	onDispose(event, async () => {
 		clearInterval(heartbeat);
-		connections.delete(address);
+		// Not a successor's: that would leave the address looking disconnected.
+		if (connections.get(address)?.stream === stream)
+			connections.delete(address);
 		await db.session.deleteMany({ where: { id: session.id } });
 	});
 
@@ -310,7 +357,7 @@ export const sendMessageHandler = defineHandler(async (event) => {
 	});
 	const message = toMessage(row);
 
-	await announce(recipient, message.id);
+	await announce({ recipient, id: message.id });
 	void nudge(recipient, message).catch((err) =>
 		log('warn', 'push notify failed', recipient, err),
 	);

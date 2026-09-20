@@ -26,12 +26,21 @@ import {
 	it,
 	vi,
 } from 'vitest';
+import {
+	authState,
+	restore,
+	login as signIntoApp,
+} from '@/client/services/auth';
 import { enqueueOutgoing, getPendingOutgoing } from '@/client/services/chat';
 import { startSync, useSyncStatus } from '@/client/services/sync';
 import { createRetryingTask } from '@/client/utils/retryingTask';
 import { closeDb, db } from '@/relay/db/index.ts';
+import { generateMnemonic } from '@/shared/mnemonic';
+import { sleep } from '@/shared/utils.ts';
 import {
+	call,
 	interceptRelay,
+	logInAs,
 	login,
 	openStream,
 	signIn,
@@ -168,8 +177,8 @@ describe('what the app shows about being connected', () => {
 		const user = await connect();
 		await vi.waitFor(() => expect(rendered.result.current).toBe(true));
 
-		// The relay holds one stream per account, so signing in from somewhere
-		// else retires this one — a real drop, from the app's point of view.
+		// The relay holds one stream per account, so connecting again retires this
+		// one. As *this* device, so it is a reconnect, not the account moving.
 		const elsewhere = await openStream(user.token);
 		await vi.waitFor(() => expect(rendered.result.current).toBe(false), {
 			timeout: 10_000,
@@ -182,6 +191,111 @@ describe('what the app shows about being connected', () => {
 			timeout: 15_000,
 		});
 		expect(await connections(user)).toBe(1);
+	}, 30_000);
+});
+
+describe('when the account is signed in on another device', () => {
+	// An account is signed in in one place at a time. Logging in moves it without
+	// asking anybody, and the device that had it signs itself out.
+
+	/** Not {@link signIn}, which fakes the end state and so has no key to lose. */
+	async function signInHere() {
+		const identity = await signIntoApp({ mnemonic: generateMnemonic() });
+		signedIn = { ...identity, token: authState.state.session?.token ?? '' };
+		await waitFor(async () => (await connections(identity)) > 0);
+		return identity;
+	}
+
+	/** Wait for the app to notice it is no longer the device. */
+	const waitSignedOut = () =>
+		vi.waitFor(() => expect(authState.state.identity).toBeNull(), {
+			timeout: 15_000,
+		});
+
+	it('signs the old device out, with nothing asked and nothing offered', async () => {
+		const identity = await signInHere();
+
+		// Somebody types the same words into another browser. No prompt either end.
+		await logInAs(identity, 'the-new-device');
+
+		await waitSignedOut();
+		expect(authState.state.session).toBeNull();
+	}, 30_000);
+
+	it('leaves it unable to let itself back in', async () => {
+		const identity = await signInHere();
+		await logInAs(identity, 'the-new-device');
+		await waitSignedOut();
+
+		// The key pair went with the session, so a restore has nothing to use.
+		expect(await restore()).toBe(false);
+		expect(authState.state.identity).toBeNull();
+	}, 30_000);
+
+	it('does not move the account when a device merely restores its session', async () => {
+		const identity = await signInHere();
+		const before = await connectionOf(identity);
+
+		// If restoring claimed, a device would take the account back on every
+		// token refresh.
+		expect(await restore()).toBe(true);
+		await sleep(500);
+
+		expect(authState.state.identity).not.toBeNull();
+		expect(await connectionOf(identity)).toBe(before);
+	}, 30_000);
+
+	it('takes the push subscription with it', async () => {
+		const identity = await signInHere();
+		await db.pushSubscription.upsert({
+			where: { address: identity.address },
+			create: { address: identity.address, subscription: '{}' },
+			update: { subscription: '{}' },
+		});
+
+		await logInAs(identity, 'the-new-device');
+
+		// Notifications follow the account; the device that lost it cannot read them.
+		await waitFor(
+			async () =>
+				(await db.pushSubscription.count({
+					where: { address: identity.address },
+				})) === 0,
+		);
+	}, 30_000);
+
+	it('will not let the device it displaced go on writing', async () => {
+		const identity = await signInHere();
+		const bob = await login();
+		const displaced = authState.state.session?.token ?? '';
+
+		await logInAs(identity, 'the-new-device');
+		await waitSignedOut();
+
+		// The token stays valid for the rest of its hour. Refusing only the stream
+		// would leave this device able to send as somebody it is not, and to delete
+		// the messages waiting for the one that now holds the account.
+		const { status } = await call('POST', '/messages', {
+			token: displaced,
+			body: { recipient: bob.address, payload: 'from a device that lost it' },
+		});
+		expect(status).toBe(409);
+		expect(await waitingFor(bob)).toBe(0);
+	}, 30_000);
+
+	it('leaves what is still in the outbox unsent, and goes anyway', async () => {
+		const identity = await signInHere();
+		const bob = await login();
+
+		// After the account has moved, so this is not a send racing the handover.
+		await logInAs(identity, 'the-new-device');
+		await enqueueOutgoing(identity, bob.address, 'typed after the handover');
+		await waitSignedOut();
+
+		// Nothing is drained on the way out: the rule above refuses every write this
+		// device makes, so waiting for the outbox would be waiting to be refused.
+		expect(await waitingFor(bob)).toBe(0);
+		expect(await getPendingOutgoing(identity)).toHaveLength(1);
 	}, 30_000);
 });
 
