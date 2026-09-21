@@ -88,11 +88,11 @@ export function ChooseStep() {
 				<div className="mx-auto flex w-full flex-col items-center gap-12 p-6">
 					<div className="flex w-full flex-col items-center gap-1 -mt-16">
 						<img
-							src="/logo-transparent.svg"
+							src="/logo.svg"
 							alt="Boobrie"
 							width={512}
 							height={512}
-							className="size-32 shrink-0 -mb-5"
+							className="size-32 shrink-0 -mb-8 -ml-3"
 						/>
 
 						<h1 className="text-3xl font-black">Boobrie</h1>
