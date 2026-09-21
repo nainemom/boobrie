@@ -53,10 +53,14 @@ export function ConversationsPage() {
 							</p>
 						</div>
 						<div className="flex flex-col gap-3 w-full">
-							<Button onClick={() => setCreating(true)}>
+							<Button onClick={() => setCreating(true)} size={12}>
 								<PlusIcon size={16} /> Start a chat
 							</Button>
-							<Button variant="outline" onClick={() => setMatching(true)}>
+							<Button
+								variant="outline"
+								onClick={() => setMatching(true)}
+								size={12}
+							>
 								<DicesIcon size={16} /> Talk to a stranger
 							</Button>
 						</div>

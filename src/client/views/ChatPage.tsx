@@ -7,7 +7,7 @@ import { Form } from '../components/Form';
 import { FormField } from '../components/FormField';
 import { MessageList } from '../components/MessageList';
 import { Navbar } from '../components/Navbar';
-import { Page } from '../components/Page';
+import { Page, PageActions, PageBody } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { CenterSpinner } from '../components/Spinner';
 import { Textarea } from '../components/Textarea';
@@ -89,31 +89,29 @@ export function ChatPage() {
 				}
 			/>
 
-			<div className="flex-1 overflow-y-auto px-3 py-3">
+			<PageBody>
 				{messages === undefined ? (
 					<CenterSpinner />
 				) : messages.length === 0 ? (
 					<div className="flex h-full flex-col items-center justify-center gap-2 text-center text-neutral-500">
 						<span className="text-4xl">👋</span>
-						<p className="text-sm">No messages yet — say hello.</p>
+						<p className="text-sm">No messages yet.</p>
 					</div>
 				) : (
 					<MessageList messages={messages} />
 				)}
-			</div>
+			</PageBody>
 
-			<Navbar
-				position="bottom"
-				height="dynamic"
-				middle={
+			<PageActions>
+				<div className="flex gap-3 w-full shrink relative">
 					<Form onSubmit={submit} className="contents">
 						<FormField error={sendError} className="size-full">
 							<Textarea
 								value={draft}
 								onChange={(event) => setDraft(event.target.value)}
-								size={12}
+								size={14}
 								placeholder="Type a message"
-								className="min-size-full w-full"
+								className="min-w-full min-h-14.25 w-full pe-11"
 								onKeyDown={(e) => {
 									if (e.key === 'Enter' && !e.shiftKey) {
 										submit(e);
@@ -122,21 +120,20 @@ export function ChatPage() {
 							/>
 						</FormField>
 					</Form>
-				}
-				end={
 					<Button
 						type="submit"
 						iconOnly
 						size={12}
 						aria-label="Send"
+						variant="transparent"
 						disabled={draft.trim() === ''}
 						onClick={submit}
-						className="self-end"
+						className="absolute inset-e-1 bottom-1"
 					>
 						<SendIcon size={20} />
 					</Button>
-				}
-			/>
+				</div>
+			</PageActions>
 		</Page>
 	);
 }

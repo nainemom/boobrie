@@ -31,7 +31,5 @@ export const PageBody: FC<{ children?: ReactNode; className?: string }> = ({
  * scrolls, so the button the screen exists for is always within thumb reach
  * instead of somewhere down the page. */
 export const PageActions: FC<{ children?: ReactNode }> = ({ children }) => (
-	<div className="flex shrink-0 flex-col gap-3 border-t border-neutral-200 p-3">
-		{children}
-	</div>
+	<div className="flex shrink-0 flex-col gap-3 p-3">{children}</div>
 );
