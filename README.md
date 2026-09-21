@@ -12,6 +12,7 @@ Your account is twelve words, and the server can't read a thing.
 [![Test](https://github.com/nainemom/boobrie/actions/workflows/test.yml/badge.svg)](https://github.com/nainemom/boobrie/actions/workflows/test.yml)
 [![Deploy](https://github.com/nainemom/boobrie/actions/workflows/deploy.yml/badge.svg)](https://github.com/nainemom/boobrie/actions/workflows/deploy.yml)
 [![Version](https://img.shields.io/github/v/tag/nainemom/boobrie?label=version)](https://github.com/nainemom/boobrie/releases)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 </div>
 
@@ -115,3 +116,16 @@ in CI.
   which is also why one account streams on one device at a time.
 - **Large payloads are slow.** Base58 encoding is quadratic, so a big attachment
   costs real time on both ends. Known, not yet fixed.
+
+## License
+
+[AGPL-3.0-only](LICENSE). Copyright © 2026 Amir Momenian.
+
+Fork it, self-host it, run your own network. The condition that matters is the
+network one: if you deploy a modified version, the people using it must be able
+to get that version's source, the same way you can get this one's. An encrypted
+chat app nobody can audit isn't worth much, and that stays true of anything
+built from this.
+
+The name "Boobrie" and the logo aren't part of the grant. The code is yours to
+reuse; the branding isn't.
