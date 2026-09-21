@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.18
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.17...v0.0.18)
+
+### 🚀 Enhancements
+
+- Enhance layout and styling ([#11](https://github.com/nainemom/boobrie/pull/11))
+
 ## v0.0.17
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.16...v0.0.17)
