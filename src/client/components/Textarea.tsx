@@ -3,7 +3,7 @@ import { tv, type VariantProps } from 'tailwind-variants';
 
 export const textarea = tv({
 	base: [
-		'outline-none border resize-y select-text field-sizing-content',
+		'outline-none border resize-none select-text field-sizing-content',
 		'bg-neutral-50 border-neutral-200 focus:ring focus:ring-neutral-800 text-neutral-800',
 		'read-only:text-neutral-500',
 		'disabled:opacity-40 disabled:pointer-events-none',
