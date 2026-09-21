@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.17
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.16...v0.0.17)
+
+### 🚀 Enhancements
+
+- Update logo ([#10](https://github.com/nainemom/boobrie/pull/10))
+
 ## v0.0.16
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.15...v0.0.16)
