@@ -48,7 +48,7 @@ import { notify } from './push.ts';
 
 const CHANNEL = 'chat';
 /** How long a session counts as "online" without a heartbeat touching it. */
-const PRESENCE_TTL_MS = env.RELAY_HEARTBEAT_MS * 3;
+export const PRESENCE_TTL_MS = env.RELAY_HEARTBEAT_MS * 3;
 
 /** The streams this pod holds, by address — with the device each belongs to, so
  * a claim can tell the one it is displacing from the one that made it. */

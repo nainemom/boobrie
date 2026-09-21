@@ -17,6 +17,7 @@ import {
 	watchMessages,
 } from './services/messaging.ts';
 import { editPushSubscriptionHandler, initPush } from './services/push.ts';
+import { getStatsHandler } from './services/stats.ts';
 import { getUserHandler, redirectUserHandler } from './services/user.ts';
 
 /** Build the app: every endpoint, its middleware, and how errors become
@@ -50,6 +51,7 @@ export function createApp(): H3 {
 	});
 
 	app.get('/ping', () => 'pong');
+	app.get('/stats', getStatsHandler);
 
 	app.post('/auth/challenge', challengeHandler);
 	app.post('/auth/verify', verifyHandler);
