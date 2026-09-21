@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.19
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.18...v0.0.19)
+
+### 📖 Documentation
+
+- Create readme & license files ([#12](https://github.com/nainemom/boobrie/pull/12))
+
 ## v0.0.18
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.17...v0.0.18)
