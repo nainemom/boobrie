@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.20
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.19...v0.0.20)
+
+### 🚀 Enhancements
+
+- Add stats endpoint ([#13](https://github.com/nainemom/boobrie/pull/13))
+
 ## v0.0.19
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.18...v0.0.19)
