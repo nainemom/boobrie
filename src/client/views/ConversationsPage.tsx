@@ -1,5 +1,5 @@
 import { DicesIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
-import { useState } from 'react';
+import { type MouseEventHandler, useState } from 'react';
 import { Link } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -19,12 +19,23 @@ export function ConversationsPage() {
 	const [creating, setCreating] = useState(false);
 	const [matching, setMatching] = useState(false);
 
+	const showVersion: MouseEventHandler = (e) => {
+		try {
+			e.preventDefault();
+			/* @ts-expect-error */
+			const v = APP_VERSION as string;
+			alert(`v${v}`);
+		} catch (_e) {}
+	};
+
 	return (
 		<Page>
 			<Navbar
 				middle={
 					<div className="flex gap-1 items-center px-3">
-						<h1 className="text-2xl font-bold">Boobrie</h1>
+						<h1 className="text-2xl font-bold" onContextMenu={showVersion}>
+							Boobrie
+						</h1>
 						<SyncStatus />
 					</div>
 				}
