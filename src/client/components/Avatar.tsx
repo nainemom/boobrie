@@ -4,6 +4,7 @@ import {
 } from '@dicebear/core';
 import definition from '@dicebear/styles/notionists.json' with { type: 'json' };
 import type { FC } from 'react';
+import { twMerge } from 'tailwind-merge';
 import { isAnonymous } from '@/shared/auth';
 import { GeneratedSvg } from './GeneratedSvg';
 
@@ -47,5 +48,8 @@ export const Avatar: FC<{
 	address: string;
 	className?: string;
 }> = ({ address, className }) => (
-	<GeneratedSvg svg={generateAvatar(address)} className={className} />
+	<GeneratedSvg
+		svg={generateAvatar(address)}
+		className={twMerge('bg-neutral-100 rounded-sm', className)}
+	/>
 );
