@@ -127,7 +127,10 @@ export function ProfilePage() {
 			<PageBody className="gap-4">
 				<FormField vertical className="mb-4">
 					<div className="flex h-64 w-full shrink-0 items-center justify-between gap-1 rounded-sm border border-neutral-200 px-3 bg-neutral-100">
-						<Avatar address={address} className="size-64 shrink-0" />
+						<Avatar
+							address={address}
+							className="size-64 shrink-0 bg-transparent"
+						/>
 						<Signature address={address} className="text-neutral-700 h-64" />
 					</div>
 				</FormField>
