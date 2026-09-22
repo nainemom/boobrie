@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { Avatar } from '../../components/Avatar';
 import { FormField } from '../../components/FormField';
-import { Signature } from '../../components/Signature';
 import { Spinner } from '../../components/Spinner';
 import { generate, login } from '../../services/auth';
 import { truncateAddress } from '../../utils/address';
@@ -58,9 +57,8 @@ export function AnonymousStep() {
 			<AuthHero>
 				{address ? (
 					<>
-						<div className="flex h-44 w-full shrink-0 items-center justify-between gap-1 rounded-sm border border-neutral-200 bg-neutral-100 px-3">
-							<Avatar address={address} className="size-44 shrink-0" />
-							<Signature address={address} className="h-44 text-neutral-700" />
+						<div className="flex h-64 w-full shrink-0 items-center justify-center gap-1 rounded-sm border border-neutral-200 bg-neutral-100 px-3">
+							<Avatar address={address} className="size-64 shrink-0" />
 						</div>
 						<div className="flex flex-col gap-1">
 							<p className="text-2xl font-bold tracking-tight text-neutral-800">
