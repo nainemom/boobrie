@@ -1,4 +1,9 @@
-import { ChevronRightIcon, InfoIcon, LoaderIcon } from 'lucide-react';
+import {
+	ChevronRightIcon,
+	InfoIcon,
+	LoaderIcon,
+	ShieldAlertIcon,
+} from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 import { twJoin } from 'tailwind-merge';
 import { tv, type VariantProps } from 'tailwind-variants';
@@ -14,6 +19,7 @@ export const FormField: FC<
 		error?: string | null;
 		success?: string | null;
 		info?: string | null;
+		description?: string | null;
 		children?: ReactNode;
 		className?: string;
 		vertical?: boolean;
@@ -26,6 +32,7 @@ export const FormField: FC<
 	error,
 	success,
 	info,
+	description,
 	className,
 	vertical,
 	loading,
@@ -66,6 +73,15 @@ export const FormField: FC<
 					)}
 				</div>
 			</div>
+			{description && (
+				<p
+					role="alert"
+					className="text-xs p-1 pt-0.5 ps-0 text-neutral-400 w-full leading-tight flex items-start gap-1"
+				>
+					<ShieldAlertIcon size={16} className="shrink-0" />
+					{description}
+				</p>
+			)}
 			{error && (
 				<p
 					role="alert"
