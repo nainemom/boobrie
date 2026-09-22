@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.23
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.22...v0.0.23)
+
+### 🚀 Enhancements
+
+- Explain that handles are public on sign-up ([#17](https://github.com/nainemom/boobrie/pull/17))
+
 ## v0.0.22
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.21...v0.0.22)
