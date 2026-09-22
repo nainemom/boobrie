@@ -1,6 +1,15 @@
 # Changelog
 
 
+## v0.0.22
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.21...v0.0.22)
+
+### 🚀 Enhancements
+
+- Show app version [skip ci] ([#16](https://github.com/nainemom/boobrie/pull/16))
+- Improve avatar background ([#15](https://github.com/nainemom/boobrie/pull/15))
+
 ## v0.0.21
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.20...v0.0.21)
