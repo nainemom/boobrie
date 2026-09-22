@@ -95,6 +95,8 @@ const RegisterForm: FC<{
 					label="Handle"
 					htmlFor="handle-input"
 					error={errors.handle?.message}
+					info="The relay stores handles in the clear and will tell anyone which address one belongs to. Your messages stay encrypted either way."
+					description="Public and permanent. Anyone can reach you by it, and everyone you chat with sees it. Pick a name that isn't tied to you elsewhere, or go back and choose 'Go Anonymous' to have no handle at all."
 					vertical
 				>
 					<Input
