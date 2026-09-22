@@ -277,6 +277,7 @@ export default defineConfig(({ command }) => {
 		},
 		define: {
 			'process.env': env,
+			APP_VERSION: `"${pkg.version}"`,
 		},
 	};
 });
