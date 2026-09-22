@@ -38,7 +38,8 @@ export const ConversationList: FC<{
 									}`}
 								>
 									{lastMessage.direction === 'out' ? 'You: ' : ''}
-									{lastMessage.body}
+									{/* `bdi` is `dir="auto"` plus isolation */}
+									<bdi>{lastMessage.body}</bdi>
 								</span>
 							) : null}
 						</div>
