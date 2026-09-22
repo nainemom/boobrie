@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.21
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.20...v0.0.21)
+
+### 🚀 Enhancements
+
+- Add auto dir detection for messages ([#14](https://github.com/nainemom/boobrie/pull/14))
+
 ## v0.0.20
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.19...v0.0.20)
