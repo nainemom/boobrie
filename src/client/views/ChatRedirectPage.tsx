@@ -1,8 +1,7 @@
 import useSWR from 'swr';
 import { Redirect, useParams } from 'wouter';
-import { Page } from '../components/Page';
-import { CenterSpinner } from '../components/Spinner';
 import { getUserByHandle } from '../services/relay';
+import { useAuthRedirect } from './AuthPage/lib';
 
 export function ChatRedirectPage() {
 	const { handle } = useParams<{ handle: string }>();
@@ -17,16 +16,11 @@ export function ChatRedirectPage() {
 			revalidateOnReconnect: false,
 			revalidateIfStale: false,
 			keepPreviousData: false,
+			suspense: true,
 		},
 	);
 
-	if (userAddress.data) {
-		return <Redirect to={`/i/${userAddress.data}`} />;
-	}
+	const redirect = useAuthRedirect(userAddress.data);
 
-	return (
-		<Page>
-			<CenterSpinner />
-		</Page>
-	);
+	return <Redirect to={redirect || `/i/${userAddress.data}`} replace />;
 }

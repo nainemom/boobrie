@@ -1,6 +1,6 @@
 import { ChevronLeftIcon, SendIcon } from 'lucide-react';
-import { type SyntheticEvent, useEffect, useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { type FC, type SyntheticEvent, useEffect, useState } from 'react';
+import { Link, Redirect, useParams } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Form } from '../components/Form';
@@ -18,9 +18,18 @@ import {
 } from '../services/chat';
 import { truncateAddress } from '../utils/address';
 import { errorMessage } from '../utils/errors';
+import { useAuthRedirect } from './AuthPage/lib';
 
 export function ChatPage() {
 	const { address } = useParams<{ address: string }>();
+	const redirect = useAuthRedirect(address);
+
+	if (redirect) return <Redirect to={redirect} replace />;
+
+	return <Chat address={address} />;
+}
+
+const Chat: FC<{ address: string }> = ({ address }) => {
 	const messages = useMessages(address);
 	const sendMessage = useSendMessage();
 	const markRead = useMarkConversationRead();
@@ -137,4 +146,4 @@ export function ChatPage() {
 			</PageActions>
 		</Page>
 	);
-}
+};

@@ -13,6 +13,8 @@ export const LOCAL_STORE_KDF_INFO = 'viska-local-store';
 
 /** List of reserved usernames/handles that users cannot claim. */
 export const RESERVED_HANDLES = [
+	'auth',
+	'profile',
 	'admin',
 	'administrator',
 	'me',
