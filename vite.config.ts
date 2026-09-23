@@ -146,6 +146,20 @@ const siteMetadata = (): Plugin => ({
 			type: 'asset',
 			fileName: 'robots.txt',
 			source: [
+				// Link-preview fetchers, not indexers: they read a URL only because
+				// someone just pasted it, and a `Disallow` here is what turns that
+				// share into a bare link instead of a card. A crawler that finds a
+				// group naming it obeys only that group, so this doesn't loosen the
+				// `*` rule for search engines.
+				'User-agent: Twitterbot',
+				'User-agent: facebookexternalhit',
+				'User-agent: LinkedInBot',
+				'User-agent: Slackbot',
+				'User-agent: Discordbot',
+				'User-agent: TelegramBot',
+				'User-agent: WhatsApp',
+				'Allow: /',
+				'',
 				'User-agent: *',
 				// An invite URL carries the invitee's address in the path. Nothing
 				// good comes of those sitting in a search index.
