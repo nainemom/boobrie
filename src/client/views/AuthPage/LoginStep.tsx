@@ -58,11 +58,12 @@ export function LoginStep() {
 						label="Recovery phrase"
 						htmlFor="recovery-phrase-input"
 						error={errors.mnemonic?.message}
+						description="Separate words with spaces, new lines, commas, hyphens, or underscores."
 						vertical
 					>
 						<Textarea
 							id="recovery-phrase-input"
-							className="w-full min-h-32"
+							className="w-full min-h-48"
 							size={12}
 							placeholder="word1 word2 … word12"
 							autoFocus
