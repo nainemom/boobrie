@@ -1,9 +1,9 @@
 name: Deploy
 
+# By hand only. The guard step in `bump-version` refuses anything but `main`,
+# and refuses a `main` that has nothing new since the last release tag.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 concurrency:
   group: deploy
@@ -18,7 +18,6 @@ jobs:
   bump-version:
     name: Bump Version
     runs-on: ubuntu-latest
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
 
     environment:
       name: production
@@ -36,6 +35,20 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.BUMP_PAT }}
+
+      # Every deploy tags its release commit, so an untouched `main` sits
+      # exactly on the latest `v*` tag.
+      - name: Require new changes on main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Deploys run from main only, not $GITHUB_REF_NAME."
+            exit 1
+          fi
+          LAST=$(git describe --tags --abbrev=0 --match 'v*')
+          if [ "$(git rev-list --count "$LAST..HEAD")" -eq 0 ]; then
+            echo "::error::Nothing on main since $LAST."
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
