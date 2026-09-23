@@ -1,5 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckIcon, ChevronLeftIcon, WandIcon } from 'lucide-react';
+import {
+	CheckIcon,
+	ChevronLeftIcon,
+	CopyIcon,
+	ShieldAlertIcon,
+	WandIcon,
+} from 'lucide-react';
 import { type FC, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
@@ -9,12 +15,15 @@ import { handleSchema } from '@/shared/protocol';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { Form } from '../../components/Form';
+import { FormActions } from '../../components/FormActions';
 import { FormField } from '../../components/FormField';
 import { Input } from '../../components/Input';
+import { Modal } from '../../components/Modal';
 import { PageActions, PageBody } from '../../components/Page';
 import { Signature } from '../../components/Signature';
 import { generate, login } from '../../services/auth';
 import { errorMessage } from '../../utils/errors';
+import { useCopyToClipboard } from '../../utils/useCopyToClipboard';
 import { AuthLayout, useAuthFlow } from './lib';
 
 const signUpSchema = z.object({ handle: handleSchema });
@@ -175,6 +184,8 @@ const SavePhrase: FC<{ phrase: string; onSaved: () => void }> = ({
 	const words = phrase.split(' ');
 	const [checkIndex, setCheckIndex] = useState<number | null>(null);
 	const [checkError, setCheckError] = useState<string | null>(null);
+	const [PhraseCopyIcon, copyPhraseToClipboard] = useCopyToClipboard();
+	const [confirmingCopy, setConfirmingCopy] = useState(false);
 
 	useEffect(() => {
 		const handler = (e: BeforeUnloadEvent) => {
@@ -271,7 +282,7 @@ const SavePhrase: FC<{ phrase: string; onSaved: () => void }> = ({
 							<li
 								// biome-ignore lint/suspicious/noArrayIndexKey: fixed-order phrase, words may repeat, never reordered
 								key={`${index}-${word}`}
-								className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2"
+								className="flex items-center gap-2 rounded-sm border border-neutral-300 px-3 h-10"
 							>
 								<span className="text-xs text-neutral-400 font-mono">
 									{(index + 1).toString().padStart(2, '0')}
@@ -280,6 +291,15 @@ const SavePhrase: FC<{ phrase: string; onSaved: () => void }> = ({
 							</li>
 						))}
 					</ol>
+					<Button
+						variant="outline"
+						size={10}
+						type="button"
+						onClick={() => setConfirmingCopy(true)}
+						className="mt-4 w-full"
+					>
+						<PhraseCopyIcon size={16} /> Copy Phrase
+					</Button>
 				</FormField>
 			</PageBody>
 
@@ -289,6 +309,51 @@ const SavePhrase: FC<{ phrase: string; onSaved: () => void }> = ({
 					I've Saved It
 				</Button>
 			</PageActions>
+
+			{confirmingCopy && (
+				<Modal
+					title="Copy recovery phrase?"
+					closeButton
+					onClose={() => setConfirmingCopy(false)}
+				>
+					<div className="flex flex-col gap-3 text-sm text-neutral-600">
+						<p>Once they're on your clipboard, they can leak through:</p>
+						<ul className="list-disc ps-5 flex flex-col gap-1">
+							<li>other apps and browser extensions that read the clipboard</li>
+							<li>clipboard history, which keeps them after you paste</li>
+							<li>clipboard sync to your other devices or the cloud</li>
+							<li>pasting into the wrong place by accident</li>
+						</ul>
+						<p className="text-sm bg-red-50 p-3 text-red-700 border border-red-100 w-full flex items-start gap-1 leading-tight mt-1 rounded-md mb-3">
+							<ShieldAlertIcon size={16} className="shrink-0" />
+							Writing them down on paper is safer. If you copy anyway, paste
+							them somewhere private right away and clear your clipboard
+							afterwards.
+						</p>
+					</div>
+					<FormActions>
+						<Button
+							size={12}
+							variant="outline"
+							onClick={() => setConfirmingCopy(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							size={12}
+							variant="danger"
+							className="col-span-2"
+							onClick={() => {
+								copyPhraseToClipboard(phrase);
+								setConfirmingCopy(false);
+							}}
+						>
+							<CopyIcon size={16} />
+							I'm Sure, Copy
+						</Button>
+					</FormActions>
+				</Modal>
+			)}
 		</AuthLayout>
 	);
 };
