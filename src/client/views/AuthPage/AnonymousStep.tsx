@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
+import { Redirect } from 'wouter';
+import { truncateAddress } from '@/client/utils/address';
+import { useIsExternalOpen } from '@/client/utils/router';
 import { Avatar } from '../../components/Avatar';
 import { FormField } from '../../components/FormField';
 import { Spinner } from '../../components/Spinner';
 import { generate, login } from '../../services/auth';
-import { truncateAddress } from '../../utils/address';
 import { errorMessage } from '../../utils/errors';
 import { AuthHero, AuthLayout, useAuthFlow } from './lib';
 
@@ -14,6 +16,14 @@ import { AuthHero, AuthLayout, useAuthFlow } from './lib';
 const REVEAL_MS = 2500;
 
 export function AnonymousStep() {
+	const isExternalOpen = useIsExternalOpen();
+	if (isExternalOpen) {
+		return <Redirect to="/auth" replace />;
+	}
+	return <AnonymousStepContent />;
+}
+
+function AnonymousStepContent() {
 	const flow = useAuthFlow();
 
 	// Keyed per visit: coming back here after a logout has to mint a fresh
@@ -55,30 +65,19 @@ export function AnonymousStep() {
 	return (
 		<AuthLayout title="Going anonymous">
 			<AuthHero>
-				{address ? (
-					<>
-						<div className="flex h-64 w-full shrink-0 items-center justify-center gap-1 rounded-sm border border-neutral-200 bg-neutral-100 px-3">
-							<Avatar address={address} className="size-64 shrink-0" />
-						</div>
-						<div className="flex flex-col gap-1">
-							<p className="text-2xl font-bold tracking-tight text-neutral-800">
-								This is you
-							</p>
-							<p className="text-sm text-neutral-500">
-								{truncateAddress(address)} — no handle, and no recovery phrase
-								to write down. This identity lives on this device only.
-							</p>
-						</div>
-						<Spinner className="text-neutral-400" />
-					</>
-				) : (
-					<>
-						<Spinner size={8} className="text-neutral-300" />
-						<p className="font-medium text-neutral-500">
-							Creating an identity…
-						</p>
-					</>
+				{address && (
+					<div className="flex flex-col gap-2 items-center justify-center">
+						<Avatar
+							address={address}
+							className="size-52 shrink-0 mx-auto border border-neutral-200"
+						/>
+						<p className="text-lg font-semibold">{truncateAddress(address)}</p>
+					</div>
 				)}
+				<div className="font-medium text-neutral-700 flex items-center gap-2">
+					<Spinner size={4} className="text-neutral-400" />{' '}
+					{address ? `Registring` : 'Generating'}…
+				</div>
 			</AuthHero>
 		</AuthLayout>
 	);

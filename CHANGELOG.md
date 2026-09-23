@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.25
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.24...v0.0.25)
+
+### 🚀 Enhancements
+
+- Ask which account answers a followed link ([#19](https://github.com/nainemom/boobrie/pull/19))
+
 ## v0.0.24
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.23...v0.0.24)
