@@ -1,9 +1,9 @@
 import { type FC, Suspense, use } from 'react';
 import { SWRConfig } from 'swr';
-import { Redirect, Route, Router, Switch, useLocation, useRoute } from 'wouter';
+import { Redirect, Route, Router, Switch } from 'wouter';
 import { Page } from './components/Page';
 import { CenterSpinner } from './components/Spinner';
-import { restore, useAuth } from './services/auth';
+import { restore } from './services/auth';
 import { AuthPage } from './views/AuthPage';
 import { ChatPage } from './views/ChatPage';
 import { ChatRedirectPage } from './views/ChatRedirectPage';
@@ -39,39 +39,14 @@ export function App() {
 	);
 }
 
-/**
- * Every route but `/auth` needs an identity, so rather than each page gating
- * itself, anyone without one is bounced to the auth page. A chat link is the
- * one destination worth restoring afterwards — somebody followed it here to
- * talk to a particular person — so that, and only that, is passed along as
- * `callback_url`; everything else starts at the conversation list.
- */
 const Routes: FC = () => {
 	use(restored);
-	const { identity } = useAuth();
-	const [location] = useLocation();
-	// Matched, not string-compared, so these can't drift from the routes below.
-	const [onAuthPage] = useRoute('/auth/:step?');
-	const [onChatPage] = useRoute('/i/:address');
-
-	if (!identity && !onAuthPage) {
-		return (
-			<Redirect
-				to={
-					onChatPage
-						? `/auth?callback_url=${encodeURIComponent(location)}`
-						: '/auth'
-				}
-				replace
-			/>
-		);
-	}
 
 	return (
 		<Switch>
 			<Route path="/" component={ConversationsPage} />
 			<Route path="/auth/:step?" component={AuthPage} />
-			<Route path="/profile/:address?" component={ProfilePage} />
+			<Route path="/profile/:address" component={ProfilePage} />
 			<Route path="/i/:address" component={ChatPage} />
 			<Route path="/:handle" component={ChatRedirectPage} />
 			<Route>

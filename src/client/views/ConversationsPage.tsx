@@ -1,6 +1,6 @@
 import { DicesIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
-import { type MouseEventHandler, useState } from 'react';
-import { Link } from 'wouter';
+import { useState } from 'react';
+import { Link, Redirect } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { ConversationList } from '../components/ConversationList';
@@ -10,6 +10,7 @@ import { CenterSpinner } from '../components/Spinner';
 import { SyncStatus } from '../components/SyncStatus';
 import { useAuth } from '../services/auth';
 import { useConversations } from '../services/chat';
+import { useAuthRedirect } from './AuthPage/lib';
 import { CreateChatModal } from './CreateChatModal';
 import { RandomChatModal } from './RandomChatModal';
 
@@ -18,33 +19,43 @@ export function ConversationsPage() {
 	const { identity } = useAuth();
 	const [creating, setCreating] = useState(false);
 	const [matching, setMatching] = useState(false);
+	const redirect = useAuthRedirect();
 
-	const showVersion: MouseEventHandler = (e) => {
-		try {
-			e.preventDefault();
-			/* @ts-expect-error */
-			const v = APP_VERSION as string;
-			alert(`v${v}`);
-		} catch (_e) {}
-	};
+	if (redirect) return <Redirect to={redirect} replace />;
 
 	return (
 		<Page>
 			<Navbar
 				middle={
 					<div className="flex gap-1 items-center px-3">
-						<h1 className="text-2xl font-bold" onContextMenu={showVersion}>
+						<h1
+							className="text-2xl font-bold"
+							onContextMenu={(e) => {
+								try {
+									e.preventDefault();
+									/* @ts-expect-error */
+									const v = APP_VERSION as string;
+									alert(`v${v}`);
+								} catch (_e) {}
+							}}
+						>
 							Boobrie
 						</h1>
 						<SyncStatus />
 					</div>
 				}
 				end={
-					<Link href="/profile" aria-label="Your profile" className="contents">
-						<Button size={12} iconOnly variant="transparent">
-							{identity?.address && <Avatar address={identity.address} />}
-						</Button>
-					</Link>
+					identity && (
+						<Link
+							href={`/profile/${identity.address}`}
+							aria-label="Your profile"
+							className="contents"
+						>
+							<Button size={12} iconOnly variant="transparent">
+								<Avatar address={identity.address} />
+							</Button>
+						</Link>
+					)
 				}
 			/>
 

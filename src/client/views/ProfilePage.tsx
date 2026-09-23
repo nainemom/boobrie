@@ -8,9 +8,8 @@ import {
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { twMerge } from 'tailwind-merge';
-import { Link, useParams } from 'wouter';
+import { Link, Redirect, useParams } from 'wouter';
 import { isAnonymous } from '@/shared/auth';
-import { sleep } from '@/shared/utils';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { FormField } from '../components/FormField';
@@ -19,7 +18,7 @@ import { Page, PageActions, PageBody } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { Toggle } from '../components/Toggle';
 import { env } from '../env';
-import { logout } from '../services/auth';
+import { logout, useAuth } from '../services/auth';
 import { getUser } from '../services/relay';
 import {
 	changeDiscoverable,
@@ -31,6 +30,7 @@ import { truncateAddress } from '../utils/address';
 import { truncateLink } from '../utils/link';
 import { useCopyToClipboard } from '../utils/useCopyToClipboard';
 import { useOsShare } from '../utils/useOsShare';
+import { useAuthRedirect } from './AuthPage/lib';
 
 function pushDescription(
 	permission: NotificationPermission | 'unsupported',
@@ -55,28 +55,27 @@ function pushDescription(
 	return 'Get notified about new messages on this device.';
 }
 
-/** Somebody's profile: your own at `/profile`, a peer's at `/profile/:address`
- * (which is where their chat's header sends you). */
+/** Somebody's profile at `/profile/:address` — a peer's, which is where their
+ * chat's header sends you, or your own, which the conversation list links to by
+ * address like any other. Whose it is decides what's on it and nothing more. */
 export function ProfilePage() {
-	const { address: param } = useParams<{ address?: string }>();
+	const { address } = useParams<{ address: string }>();
 	const user = useUser();
+	const { identity } = useAuth();
 
-	const address = param ?? user.identity?.address;
-	const isMe = !!address && address === user.identity?.address;
+	const isMe = address === identity?.address;
 
 	// Your own profile is already in the user service; somebody else's has to
 	// come from the relay. Either way the handle is only ever displayed — it's
 	// claimed once, at sign-up, and there's no endpoint to change it after.
 	const peer = useSWR(
-		!address ? null : (['user', address] as const),
-		async ([, peerAddress]) => {
-			await sleep(1000);
-			return await getUser(peerAddress);
-		},
+		['user', address] as const,
+		async ([, peerAddress]) => getUser(peerAddress),
 		{
 			revalidateOnFocus: false,
 			revalidateOnReconnect: false,
 			shouldRetryOnError: false,
+			suspense: true,
 		},
 	);
 
@@ -88,10 +87,9 @@ export function ProfilePage() {
 		'settings/discoverable',
 		(_key: string, { arg }: { arg: boolean }) => changeDiscoverable(arg),
 	);
+	const redirect = useAuthRedirect();
 
-	// Only reachable in the blink between logging out and the router bouncing
-	// us to the auth page.
-	if (!address || !user.identity || !user.session) return null;
+	if (redirect) return <Redirect to={redirect} replace />;
 
 	const me = user.me;
 	const url = `${env.CLIENT_PUBLIC_URL}/${peer.data?.handle ?? `i/${address}`}`;
@@ -152,7 +150,7 @@ export function ProfilePage() {
 				</FormField>
 
 				{isMe && (
-					<FormField label="URL" htmlFor="share-url" loading={peer.isLoading}>
+					<FormField label="URL" htmlFor="share-url">
 						<div className="flex items-center gap-1">
 							<Link
 								className="text-sm shrink text-neutral-500 overflow-hidden truncate max-w-full"
@@ -197,11 +195,7 @@ export function ProfilePage() {
 					</div>
 				</FormField>
 
-				<FormField
-					label="Handle"
-					htmlFor="copy-handle"
-					loading={peer.isLoading}
-				>
+				<FormField label="Handle" htmlFor="copy-handle">
 					<div className="flex items-center gap-1">
 						<p
 							className={twMerge(
@@ -227,11 +221,10 @@ export function ProfilePage() {
 					</div>
 				</FormField>
 
-				<FormField label="Joined" loading={peer.isLoading}>
+				<FormField label="Joined">
 					<p
 						className={twMerge(
 							'text-sm shrink',
-							peer.isLoading && 'animate-pulse',
 							peer.data?.createdAt ? 'text-neutral-500' : 'text-neutral-300',
 						)}
 					>
