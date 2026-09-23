@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.27
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.26...v0.0.27)
+
+### 🚀 Enhancements
+
+- Improve login ([#23](https://github.com/nainemom/boobrie/pull/23))
+
 ## v0.0.26
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.25...v0.0.26)
