@@ -39,7 +39,7 @@ export const MessageList: FC<{ messages: StoredMessage[] }> = ({
 						<div
 							dir="auto"
 							className={twMerge(
-								'max-w-[75%] relative whitespace-pre-wrap wrap-break-word rounded-sm p-3 text-sm',
+								'max-w-[75%] relative whitespace-pre-wrap wrap-break-word rounded-sm p-3 text-sm select-text',
 								outgoing
 									? 'bg-primary text-on-primary'
 									: 'bg-neutral-200 text-neutral-800',
