@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.0.26
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.25...v0.0.26)
+
+### 🚀 Enhancements
+
+- Add social preview ([#22](https://github.com/nainemom/boobrie/pull/22))
+
+### 🩹 Fixes
+
+- Deeplink handler ([#20](https://github.com/nainemom/boobrie/pull/20))
+
+### 🤖 CI
+
+- Deploy by hand only, from main ([#21](https://github.com/nainemom/boobrie/pull/21))
+
 ## v0.0.25
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.24...v0.0.25)
