@@ -83,7 +83,10 @@ const AuthCarousel: FC = () => {
 const PeerIntro: FC<{ address: string }> = ({ address }) => {
 	return (
 		<div className="flex w-full flex-col items-center gap-3 text-center">
-			<Avatar address={address} className="size-48 shrink-0" />
+			<Avatar
+				address={address}
+				className="size-52 shrink-0 border border-neutral-200"
+			/>
 
 			<div className="max-w-sm text-base text-neutral-500 leading-snug">
 				<p>
