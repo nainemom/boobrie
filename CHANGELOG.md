@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.0.28
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.27...v0.0.28)
+
+### 🚀 Enhancements
+
+- Allow messages to be selected ([#24](https://github.com/nainemom/boobrie/pull/24))
+
+### 🏡 Chore
+
+- Improve auth choose step peer avatar ([c5ac875](https://github.com/nainemom/boobrie/commit/c5ac875))
+
 ## v0.0.27
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.26...v0.0.27)
