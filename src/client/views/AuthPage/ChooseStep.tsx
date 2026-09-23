@@ -1,6 +1,7 @@
 import { HatGlassesIcon, UserKeyIcon, UserPlusIcon } from 'lucide-react';
 import type { FC } from 'react';
 import { Link } from 'wouter';
+import { PageActions } from '@/client/components/Page';
 import { AutoCarousel } from '../../components/AutoCarousel';
 import { Button } from '../../components/Button';
 import { Divider } from '../../components/Divider';
@@ -125,6 +126,27 @@ export function ChooseStep() {
 					</div>
 				</div>
 			</div>
+			<PageActions>
+				<div className="text-base w-full text-center">
+					<span className="text-neutral-500">Sponsored by</span>
+					<a
+						href="https://paasta.cloud"
+						referrerPolicy="no-referrer"
+						target="_blank"
+						className="ms-2"
+						rel="noopener noreferrer"
+					>
+						<img
+							alt=""
+							src="/paasta-logo.png"
+							width={16}
+							height={16}
+							className="size-4 inline me-1 object-contain"
+						/>
+						Paasta Cloud
+					</a>
+				</div>
+			</PageActions>
 		</AuthLayout>
 	);
 }
