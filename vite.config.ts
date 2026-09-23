@@ -103,7 +103,39 @@ const siteMetadata = (): Plugin => ({
 			return ctx.server ? out : out.replace(/<!--[\s\S]*?-->\s*/g, '');
 		},
 	},
-	generateBundle() {
+	generateBundle(_options, bundle) {
+		// unplugin-favicons writes the manifest from a fixed list of options of
+		// its own, and link handling isn't on it — so the two members that make
+		// an installed copy the default opener for its own URLs are merged in
+		// here, after it has emitted the file during `buildStart`. Only in a
+		// build: the dev server answers from the plugin's own middleware, and a
+		// localhost install is not what any of this is for.
+		const manifest = Object.values(bundle).find(
+			(file) => file.type === 'asset' && file.fileName.endsWith('.webmanifest'),
+		);
+		if (manifest?.type !== 'asset' || typeof manifest.source !== 'string') {
+			throw new Error(
+				'no web app manifest in the bundle — unplugin-favicons emits one on ' +
+					'every build, so it has either stopped or renamed the file',
+			);
+		}
+		manifest.source = JSON.stringify({
+			...(JSON.parse(manifest.source) as Record<string, unknown>),
+			// "When this app is installed, it should be what opens links inside its
+			// scope" — which is every URL on the origin (`scope: '/'` above), so an
+			// invite someone tapped in another app arrives in the installed app
+			// rather than a browser tab. A preference, not a rule: the user can turn
+			// it off per app, and browsers that don't implement it ignore it.
+			handle_links: 'preferred',
+			// Where such a link lands: the window that is already open, navigated to
+			// the URL that was tapped, rather than a second copy of the app beside
+			// it. `focus-existing` would spare the reload — it focuses the window
+			// and leaves the URL to `launchQueue` — but only if the app also routes
+			// that URL itself, and a boot from the local database is cheap enough
+			// not to be worth the moving part.
+			launch_handler: { client_mode: 'navigate-existing' },
+		});
+
 		// `/:handle` is deliberately left crawlable. A blanket `Disallow: /` with
 		// an `Allow: /$` exception is the only way to express "the landing page
 		// and nothing else", and crawlers that don't implement `$` read that as
