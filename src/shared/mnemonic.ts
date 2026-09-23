@@ -35,7 +35,11 @@ const MNEMONIC_STRENGTH = 128;
 /** Tidy up a phrase a user typed or pasted — trim, collapse extra spaces, and
  * lowercase — so small formatting differences still match. */
 function normalizeMnemonic(mnemonic: string): string {
-	return mnemonic.trim().replace(/\s+/g, ' ').toLowerCase();
+	return mnemonic
+		.replace(/(,)|(\|)|(_)|(-)/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.toLowerCase();
 }
 
 /** Make a brand-new, random 12-word recovery phrase. */
