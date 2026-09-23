@@ -3,9 +3,11 @@ import type { FC } from 'react';
 import { Link } from 'wouter';
 import { PageActions } from '@/client/components/Page';
 import { AutoCarousel } from '../../components/AutoCarousel';
+import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { Divider } from '../../components/Divider';
 import { useAuth } from '../../services/auth';
+import { truncateAddress } from '../../utils/address';
 import { AuthLayout, useAuthFlow } from './lib';
 
 // --- carousel ------------------------------------------------------------
@@ -73,42 +75,91 @@ const AuthCarousel: FC = () => {
 	);
 };
 
+// --- who's waiting -------------------------------------------------------
+
+/** Whoever's link brought us here, in place of the logo. The avatar and the
+ * address are drawn from the address alone, so they're right before the relay
+ * has said a word; only the handle waits on the lookup. */
+const PeerIntro: FC<{ address: string }> = ({ address }) => {
+	return (
+		<div className="flex w-full flex-col items-center gap-3 text-center">
+			<Avatar address={address} className="size-48 shrink-0" />
+
+			<div className="max-w-sm text-base text-neutral-500 leading-snug">
+				<p>
+					You're about to message{' '}
+					<b className="text-neutral-800">{truncateAddress(address)}</b>.
+				</p>
+				<p>Which account do you want to use?</p>
+			</div>
+		</div>
+	);
+};
+
+/** The app itself, for anyone who came to the door rather than through a link. */
+const AppIntro: FC = () => (
+	<div className="flex w-full flex-col items-center gap-1 -mt-16">
+		<img
+			src="/logo.svg"
+			alt="Boobrie"
+			width={512}
+			height={512}
+			className="size-32 shrink-0 -mb-8 -ml-3"
+		/>
+
+		<h1 className="text-3xl font-black">Boobrie</h1>
+
+		<AuthCarousel />
+	</div>
+);
+
 // --- the step: /auth -----------------------------------------------------
 
-/** The three ways in. No title in the navbar — the logo says where you are,
- * and this is the only place in the app it appears. */
+/** The three ways in — four, when an account is already signed in here and a
+ * link is waiting on an answer: keeping it is then a choice like any other, and
+ * the one most people want. No title in the navbar; the logo (or the person
+ * being written to) says where you are. */
 export function ChooseStep() {
 	const { identity } = useAuth();
 	const flow = useAuthFlow();
 
 	// Only leavable by somebody who already has an identity and wandered here on
-	// purpose; everyone else is here because they have to be.
+	// purpose; everyone else is here because they have to be — and where a link
+	// is waiting, the way out is one of the buttons, not the back arrow.
 	return (
-		<AuthLayout back={identity ? flow.to : undefined}>
+		<AuthLayout back={identity && !flow.peer ? flow.to : undefined}>
 			<div className="flex flex-1 flex-col items-center justify-center overflow-y-auto">
 				<div className="mx-auto flex w-full flex-col items-center gap-12 p-6">
-					<div className="flex w-full flex-col items-center gap-1 -mt-16">
-						<img
-							src="/logo.svg"
-							alt="Boobrie"
-							width={512}
-							height={512}
-							className="size-32 shrink-0 -mb-8 -ml-3"
-						/>
-
-						<h1 className="text-3xl font-black">Boobrie</h1>
-
-						<AuthCarousel />
-					</div>
+					{flow.peer ? <PeerIntro address={flow.peer} /> : <AppIntro />}
 
 					<div className="flex w-full max-w-sm flex-col gap-3">
+						{identity && (
+							<>
+								<Button
+									size={12}
+									className="w-full"
+									onClick={flow.done}
+									variant="primary"
+								>
+									<Avatar
+										address={identity.address}
+										className="absolute inset-s-1.5 top-1.5 size-8.5 shrink-0 overflow-hidden"
+									/>
+									Continue as
+									<b className="normal-case">
+										{truncateAddress(identity.address)}
+									</b>
+								</Button>
+								<Divider label="Or" />
+							</>
+						)}
 						<Link href={flow.link('/auth/anonymous')} className="contents">
 							<Button variant="outline" size={12} className="w-full">
 								<HatGlassesIcon size={20} />
 								Go Anonymous
 							</Button>
 						</Link>
-						<Divider label="Or" />
+						<Divider label={identity ? undefined : 'Or'} />
 						<div className="grid grid-cols-2 gap-3">
 							<Link href={flow.link('/auth/login')} className="contents">
 								<Button variant="outline" size={12}>
@@ -117,7 +168,7 @@ export function ChooseStep() {
 								</Button>
 							</Link>
 							<Link href={flow.link('/auth/register')} className="contents">
-								<Button variant="primary" size={12}>
+								<Button variant={identity ? 'outline' : 'primary'} size={12}>
 									<UserPlusIcon size={20} />
 									Sign Up
 								</Button>
