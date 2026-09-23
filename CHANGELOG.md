@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.24
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.23...v0.0.24)
+
+### 🚀 Enhancements
+
+- Announce "paasta" as sponsor ([#18](https://github.com/nainemom/boobrie/pull/18))
+
 ## v0.0.23
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.22...v0.0.23)
