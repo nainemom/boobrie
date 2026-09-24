@@ -109,14 +109,27 @@
 			padding: 0;
 		}
 	}
-	/* ::view-transition-old(root) {
-    animation: 180ms ease both vt-leave;
-  }
-  ::view-transition-new(root) {
-    animation: 180ms ease both vt-enter;
-  }
-  * {
-    scrollbar-width: thin;
-    -webkit-scrollbar-width: thin;
-  } */
+	::view-transition-old(root) {
+		animation: 200ms ease both vt-leave;
+	}
+	::view-transition-new(root) {
+		animation: 200ms ease both vt-enter;
+	}
+	* {
+		scrollbar-width: thin;
+		-webkit-scrollbar-width: thin;
+	}
+}
+
+@keyframes vt-leave {
+	to {
+		filter: blur(5px);
+	}
+}
+
+@keyframes vt-enter {
+	from {
+		opacity: 0;
+		filter: blur(5px);
+	}
 }
