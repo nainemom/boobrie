@@ -75,6 +75,8 @@ export interface MeResponse {
 	handle: string | null;
 	/** Whether this user can be offered to others in random chat. */
 	discoverable: boolean;
+	/** Whether others can see if this user is online. */
+	onlineStatus: boolean;
 	/** The device push subscription on record, or null if none is registered. */
 	pushSubscription: PushSubscriptionJson | null;
 	/** The relay's Web Push VAPID public key, or null when push is not configured.
@@ -111,6 +113,15 @@ export type EditDiscoverableRequest = z.infer<typeof editDiscoverableSchema>;
 /** `PATCH /auth/me/discoverable` reply. */
 export type EditDiscoverableResponse = EditDiscoverableRequest;
 
+/** `PATCH /auth/me/online-status` body — show or hide whether you're online. */
+export const editOnlineStatusSchema = z.object({
+	onlineStatus: z.boolean(),
+});
+export type EditOnlineStatusRequest = z.infer<typeof editOnlineStatusSchema>;
+
+/** `PATCH /auth/me/online-status` reply. */
+export type EditOnlineStatusResponse = EditOnlineStatusRequest;
+
 // --- Users -----------------------------------------------------------------
 
 /** `GET /users/:address` params — an address, or `@handle`. */
@@ -129,6 +140,8 @@ export type UserParams = z.infer<typeof userParamsSchema>;
 export interface UserResponse {
 	address: string;
 	handle: string | null;
+	/** Whether they hold a live connection right now. Null when they hide it. */
+	online: boolean | null;
 	createdAt: Date;
 }
 

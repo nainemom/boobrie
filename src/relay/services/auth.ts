@@ -11,7 +11,9 @@ import {
 	type ChallengeResponse,
 	challengeSchema,
 	type EditDiscoverableResponse,
+	type EditOnlineStatusResponse,
 	editDiscoverableSchema,
+	editOnlineStatusSchema,
 	type MeResponse,
 	type VerifyResponse,
 	verifySchema,
@@ -50,6 +52,7 @@ const buildMe = async (address: string): Promise<MeResponse | null> => {
 		role: user.role as Role,
 		handle: user.handle,
 		discoverable: user.discoverable,
+		onlineStatus: user.onlineStatus,
 		pushSubscription: await getSubscription(address),
 		vapidPublicKey: vapidPublicKey(),
 		createdAt: user.createdAt,
@@ -245,4 +248,16 @@ export const editDiscoverableHandler = defineHandler(async (event) => {
 	await db.user.update({ where: { address }, data: { discoverable } });
 
 	return { discoverable } satisfies EditDiscoverableResponse;
+});
+
+export const editOnlineStatusHandler = defineHandler(async (event) => {
+	const address = event.context.claim?.address || '';
+	const { onlineStatus } = await readValidatedBody(
+		event,
+		editOnlineStatusSchema,
+	);
+
+	await db.user.update({ where: { address }, data: { onlineStatus } });
+
+	return { onlineStatus } satisfies EditOnlineStatusResponse;
 });

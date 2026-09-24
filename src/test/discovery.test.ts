@@ -264,6 +264,58 @@ describe('being offered somebody to talk to', () => {
 	});
 });
 
+describe('being seen online', () => {
+	const presenceOf = async (address: string) =>
+		(await call<UserResponse>('GET', `/users/${address}`)).body;
+
+	const setOnlineStatus = (token: string, onlineStatus: unknown) =>
+		call('PATCH', '/auth/me/online-status', {
+			token,
+			body: { onlineStatus },
+		});
+
+	it('is shown until you choose to hide it', async () => {
+		const bob = await login();
+		await orphanedSession(bob.address);
+
+		expect((await presenceOf(bob.address)).online).toBe(true);
+
+		expect(await setOnlineStatus(bob.token, false)).toMatchObject({
+			status: 200,
+			body: { onlineStatus: false },
+		});
+		const me = await call<MeResponse>('GET', '/auth/me', { token: bob.token });
+		expect(me.body.onlineStatus).toBe(false);
+
+		expect((await presenceOf(bob.address)).online).toBeNull();
+	});
+
+	it('follows the connection', async () => {
+		const bob = await login();
+		expect((await presenceOf(bob.address)).online).toBe(false);
+
+		const stream = await openStream(bob.token);
+		await waitFor(async () => (await presenceOf(bob.address)).online === true);
+
+		await stream.close();
+		await waitFor(async () => (await presenceOf(bob.address)).online === false);
+	});
+
+	it('is offline once the connection goes stale', async () => {
+		const bob = await login();
+		await orphanedSession(bob.address, LONG_AGO_MS);
+
+		expect((await presenceOf(bob.address)).online).toBe(false);
+	});
+
+	it('needs a session, and a boolean to choose', async () => {
+		expect((await setOnlineStatus('', true)).status).toBe(401);
+
+		const user = await login();
+		expect((await setOnlineStatus(user.token, 'yes')).status).toBe(400);
+	});
+});
+
 describe('what somebody else can see about you', () => {
 	it('is readable without signing in, because a link has to work', async () => {
 		const name = someHandle();
@@ -277,6 +329,7 @@ describe('what somebody else can see about you', () => {
 		expect(body).toEqual({
 			address: user.address,
 			handle: name,
+			online: false,
 			createdAt: expect.any(String),
 		});
 	});
@@ -287,7 +340,7 @@ describe('what somebody else can see about you', () => {
 		expect(body.handle).toBeNull();
 	});
 
-	it('discloses nothing beyond an address, a handle and a join date', async () => {
+	it('discloses nothing beyond an address, a handle, a join date and whether online', async () => {
 		const user = await login(someHandle());
 		await call('PUT', '/auth/me/push-subscription', {
 			token: user.token,
@@ -308,6 +361,7 @@ describe('what somebody else can see about you', () => {
 			'address',
 			'createdAt',
 			'handle',
+			'online',
 		]);
 	});
 

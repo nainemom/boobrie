@@ -2,6 +2,8 @@ import { type FetchHook, ofetch } from 'ofetch';
 import { env } from '@/client/env';
 import type {
 	EditDiscoverableRequest,
+	EditOnlineStatusRequest,
+	EditOnlineStatusResponse,
 	EditPushSubscriptionRequest,
 	MeResponse,
 	Message,
@@ -201,6 +203,12 @@ export const getMe = () => api<MeResponse>('/auth/me');
 
 export const setDiscoverable = (body: EditDiscoverableRequest) =>
 	api('/auth/me/discoverable', {
+		method: 'PATCH',
+		body,
+	});
+
+export const setOnlineStatus = (body: EditOnlineStatusRequest) =>
+	api<EditOnlineStatusResponse>('/auth/me/online-status', {
 		method: 'PATCH',
 		body,
 	});
