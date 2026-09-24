@@ -9,10 +9,11 @@
  * exceed that. Queued rows are the durable backstop — replayed on (re)connect
  * and cleared when the client reads them. Presence is derived from the
  * `sessions` table so any pod can answer "is X online?" — enough to decide
- * whether a recipient needs nudging with a web push, and who is around to be
- * offered to a stranger. The table holds live connections and nothing else: a
- * stream deletes its own row on the way out, and {@link sweepSessions} clears
- * what a pod that died without getting that far left behind.
+ * whether a recipient needs nudging with a web push, who is around to be
+ * offered to a stranger, and what a profile shows. The table holds live
+ * connections and nothing else: a stream deletes its own row on the way out,
+ * and {@link sweepSessions} clears what a pod that died without getting that
+ * far left behind.
  *
  * NOTIFY is best-effort: Postgres does not queue it for a disconnected backend,
  * so the listener owns its connection lifecycle — it reconnects, re-LISTENs,
@@ -65,7 +66,7 @@ const toMessage = (row: PendingMessage): Message => ({
 });
 
 /** True while address has at least 1 recently-heartbeated session on some pod. */
-const isOnline = async (address: string): Promise<boolean> => {
+export const isOnline = async (address: string): Promise<boolean> => {
 	const fresh = new Date(Date.now() - PRESENCE_TTL_MS);
 	const row = await db.session.findFirst({
 		where: { address, createdAt: { gt: fresh } },

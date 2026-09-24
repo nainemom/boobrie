@@ -1,5 +1,6 @@
 import { ChevronLeftIcon, SendIcon } from 'lucide-react';
 import { type FC, type SyntheticEvent, useEffect, useState } from 'react';
+import useSWR from 'swr';
 import { Link, Redirect, useParams } from 'wouter';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -7,6 +8,7 @@ import { Form } from '../components/Form';
 import { FormField } from '../components/FormField';
 import { MessageList } from '../components/MessageList';
 import { Navbar } from '../components/Navbar';
+import { OnlineStatus } from '../components/OnlineStatus';
 import { Page, PageActions, PageBody } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { CenterSpinner } from '../components/Spinner';
@@ -16,6 +18,7 @@ import {
 	useMessages,
 	useSendMessage,
 } from '../services/chat';
+import { getUser } from '../services/relay';
 import { truncateAddress } from '../utils/address';
 import { errorMessage } from '../utils/errors';
 import { useAuthRedirect } from './AuthPage/lib';
@@ -33,6 +36,16 @@ const Chat: FC<{ address: string }> = ({ address }) => {
 	const messages = useMessages(address);
 	const sendMessage = useSendMessage();
 	const markRead = useMarkConversationRead();
+	// Polled, since nothing pushes presence.
+	const peer = useSWR(
+		['user', address] as const,
+		([, peerAddress]) => getUser(peerAddress),
+		{
+			refreshInterval: 30_000,
+			shouldRetryOnError: false,
+			revalidateOnFocus: true,
+		},
+	);
 
 	const [draft, setDraft] = useState('');
 	const [sendError, setSendError] = useState<string | null>(null);
@@ -72,15 +85,21 @@ const Chat: FC<{ address: string }> = ({ address }) => {
 						<Button
 							variant="transparent"
 							size={12}
-							className="flex w-full gap-2 items-center px-0 text-start font-normal normal-case"
+							className="group flex w-full gap-2 items-center px-0 text-start font-normal normal-case"
 						>
 							<Avatar
 								address={address}
-								className="size-12 overflow-hidden rounded-md"
+								className="size-12 overflow-hidden rounded-md group-hover:bg-transparent group-active:bg-transparent"
 							/>
-							<p className="min-w-0 grow font-normal text-xl text-neutral-800">
-								{truncateAddress(address)}
-							</p>
+							<div className="font-normal text-xl text-neutral-800 min-w-0 grow">
+								{truncateAddress(address)}{' '}
+								<OnlineStatus
+									loading={peer.isLoading}
+									online={peer.data?.online}
+									size={4}
+									withLabel={false}
+								/>
+							</div>
 							<Signature address={address} className="size-16" />
 						</Button>
 					</Link>

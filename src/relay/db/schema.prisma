@@ -27,6 +27,7 @@ model User {
 	/// signs itself out. Set by logging in, which is how an account moves. Null
 	/// only for an account predating this column, and claimed on its next verify.
 	activeDeviceId String? @map("active_device_id")
+	onlineStatus Boolean  @default(true) @map("online_status")
 	createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
 	@@map("users")

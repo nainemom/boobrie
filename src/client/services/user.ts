@@ -1,8 +1,9 @@
 /**
  * The user service: everything about *who you are on the relay* — your profile
- * (handle, discoverability, VAPID key) and this device's Web Push wiring. The
- * relay calls it drives live in {@link file://./relay.ts}. A handle is claimed
- * once at sign-up and never edited, so it is read here but never written.
+ * (handle, discoverability, online visibility, VAPID key) and this device's
+ * Web Push wiring. The relay calls it drives live in {@link file://./relay.ts}.
+ * A handle is claimed once at sign-up and never edited, so it is read here but
+ * never written.
  *
  * Identity and session (the mnemonic-derived key pair and its relay token) live
  * in the auth service ({@link file://./auth.ts}); this service *reacts* to it,
@@ -25,7 +26,12 @@ import {
 	subscribeToPush,
 	unsubscribeFromPush,
 } from './push';
-import { editPushSubscription, getMe, setDiscoverable } from './relay';
+import {
+	editPushSubscription,
+	getMe,
+	setDiscoverable,
+	setOnlineStatus,
+} from './relay';
 
 // --- reactive profile & push state -----------------------------------------
 
@@ -138,6 +144,12 @@ export async function changeDiscoverable(discoverable: boolean): Promise<void> {
 	const res = await setDiscoverable({ discoverable });
 	const { me } = userState.state;
 	userState.patch({ me: me ? { ...me, discoverable: res.discoverable } : me });
+}
+
+export async function changeOnlineStatus(onlineStatus: boolean): Promise<void> {
+	const res = await setOnlineStatus({ onlineStatus });
+	const { me } = userState.state;
+	userState.patch({ me: me ? { ...me, onlineStatus: res.onlineStatus } : me });
 }
 
 /** Subscribe this device in one step: request notification permission if it

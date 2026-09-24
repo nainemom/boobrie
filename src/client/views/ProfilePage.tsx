@@ -14,6 +14,7 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { FormField } from '../components/FormField';
 import { Navbar } from '../components/Navbar';
+import { OnlineStatus } from '../components/OnlineStatus';
 import { Page, PageActions, PageBody } from '../components/Page';
 import { Signature } from '../components/Signature';
 import { Toggle } from '../components/Toggle';
@@ -22,6 +23,7 @@ import { logout, useAuth } from '../services/auth';
 import { getUser } from '../services/relay';
 import {
 	changeDiscoverable,
+	changeOnlineStatus,
 	disablePush,
 	subscribeDevice,
 	useUser,
@@ -72,7 +74,8 @@ export function ProfilePage() {
 		['user', address] as const,
 		async ([, peerAddress]) => getUser(peerAddress),
 		{
-			revalidateOnFocus: false,
+			revalidateOnFocus: true,
+			refreshInterval: 30_000,
 			revalidateOnReconnect: false,
 			shouldRetryOnError: false,
 			suspense: true,
@@ -87,6 +90,10 @@ export function ProfilePage() {
 		'settings/discoverable',
 		(_key: string, { arg }: { arg: boolean }) => changeDiscoverable(arg),
 	);
+	const onlineStatusMutation = useSWRMutation(
+		'settings/online-status',
+		(_key: string, { arg }: { arg: boolean }) => changeOnlineStatus(arg),
+	);
 	const redirect = useAuthRedirect();
 
 	if (redirect) return <Redirect to={redirect} replace />;
@@ -97,6 +104,13 @@ export function ProfilePage() {
 	const toggleDiscoverable = () => {
 		if (!me) return;
 		return discoverableMutation.trigger(!me.discoverable, {
+			throwOnError: false,
+		});
+	};
+
+	const toggleOnlineStatus = () => {
+		if (!me) return;
+		return onlineStatusMutation.trigger(!me.onlineStatus, {
 			throwOnError: false,
 		});
 	};
@@ -237,7 +251,7 @@ export function ProfilePage() {
 				{isMe && (
 					<>
 						<FormField
-							label="Push notifications"
+							label="Push Notifications"
 							htmlFor="push"
 							error={user.pushError}
 							info={pushDescription(
@@ -276,8 +290,36 @@ export function ProfilePage() {
 								/>
 							</FormField>
 						)}
+
+						{me && (
+							<FormField
+								label="Show Status"
+								error={onlineStatusMutation.error?.message}
+								info="When on, others can see whether you’re online."
+							>
+								<Toggle
+									checked={me.onlineStatus}
+									onChange={toggleOnlineStatus}
+								/>
+							</FormField>
+						)}
 					</>
 				)}
+
+				<FormField label="Status">
+					<OnlineStatus
+						loading={!me || peer.isLoading}
+						size={4}
+						withLabel
+						online={
+							isMe
+								? me?.onlineStatus === true
+									? true
+									: null
+								: peer.data.online
+						}
+					/>
+				</FormField>
 			</PageBody>
 
 			<PageActions>

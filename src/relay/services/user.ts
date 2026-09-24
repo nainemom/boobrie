@@ -10,6 +10,7 @@ import {
 	userParamsSchema,
 } from '@/shared/protocol';
 import { db } from '../db/index.ts';
+import { isOnline } from './messaging.ts';
 
 export const redirectUserHandler = (newPath: string) =>
 	defineHandler(async (event) => {
@@ -42,6 +43,7 @@ export const getUserHandler = defineHandler(async (event) => {
 	return {
 		address: record.address,
 		handle: record.handle,
+		online: record.onlineStatus ? await isOnline(record.address) : null,
 		createdAt: record.createdAt,
 	} satisfies UserResponse;
 });
