@@ -1,4 +1,5 @@
 import { type FC, Suspense, use } from 'react';
+import { flushSync } from 'react-dom';
 import { SWRConfig } from 'swr';
 import { Redirect, Route, Router, Switch } from 'wouter';
 import { Page } from './components/Page';
@@ -24,7 +25,17 @@ const restored = restore();
 export function App() {
 	return (
 		<SWRConfig>
-			<Router>
+			<Router
+				aroundNav={(nav, to, opts) => {
+					if (!document.startViewTransition) {
+						nav(to, opts);
+						return;
+					}
+					document.startViewTransition(() => {
+						flushSync(() => nav(to, opts));
+					});
+				}}
+			>
 				<Suspense
 					fallback={
 						<Page>
