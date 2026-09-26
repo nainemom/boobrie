@@ -161,18 +161,34 @@ self.addEventListener('push', (event) => {
 	}
 
 	event.waitUntil(
-		self.registration.showNotification('Boobrie', {
-			body: 'You have a new message.',
-			// One of the icons unplugin-favicons renders from `public/logo.svg` (see
-			// `vite.config.ts`), picked because notification icons want a bitmap —
-			// Chrome ignores an SVG here — and because the precache covers it, so
-			// the notification still draws with no network. Moving the generator's
-			// `outputPath` means moving this too.
-			icon: '/favicons/android-chrome-192x192.png',
-			data: payload,
-		}),
+		Promise.all([
+			// A badge that fails must not take the notification down with it.
+			markUnread().catch(() => {}),
+			self.registration.showNotification('Boobrie', {
+				body: 'You have a new message.',
+				// One of the icons unplugin-favicons renders from `public/logo.svg` (see
+				// `vite.config.ts`), picked because notification icons want a bitmap —
+				// Chrome ignores an SVG here — and because the precache covers it, so
+				// the notification still draws with no network. Moving the generator's
+				// `outputPath` means moving this too.
+				icon: '/favicons/android-chrome-192x192.png',
+				data: payload,
+			}),
+		]),
 	);
 });
+
+/** Badge the app icon for a message that just arrived. The worker can't read
+ * the encrypted local database, so it can't know the real total — a plain dot
+ * says "something new" without guessing a number. Skipped when the app is on
+ * screen: it's counting for itself then (`services/badge.ts`), and a dot landing
+ * after its update would overwrite the real number. */
+async function markUnread(): Promise<void> {
+	if (!('setAppBadge' in self.navigator)) return;
+	const clients = await self.clients.matchAll({ type: 'window' });
+	if (clients.some((client) => client.visibilityState === 'visible')) return;
+	await self.navigator.setAppBadge();
+}
 
 self.addEventListener('notificationclick', (event) => {
 	event.notification.close();
