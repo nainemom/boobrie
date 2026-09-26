@@ -193,7 +193,7 @@ export function ProfilePage() {
 					info="The public address, used to identify/encryption on the network."
 				>
 					<div className="flex items-center gap-1">
-						<p className="text-sm text-neutral-500 shrink">
+						<p className="text-sm text-neutral-500 shrink font-mono">
 							{truncateAddress(address)}
 						</p>
 						<Button
@@ -309,7 +309,6 @@ export function ProfilePage() {
 				<FormField label="Status">
 					<OnlineStatus
 						loading={!me || peer.isLoading}
-						size={4}
 						withLabel
 						online={
 							isMe

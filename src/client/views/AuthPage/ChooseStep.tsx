@@ -149,7 +149,7 @@ export function ChooseStep() {
 										className="absolute inset-s-1.5 top-1.5 size-8.5 shrink-0 overflow-hidden"
 									/>
 									Continue as
-									<b className="normal-case">
+									<b className="normal-case font-mono">
 										{truncateAddress(identity.address)}
 									</b>
 								</Button>

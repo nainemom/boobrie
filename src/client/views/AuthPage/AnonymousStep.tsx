@@ -71,7 +71,9 @@ function AnonymousStepContent() {
 							address={address}
 							className="size-52 shrink-0 mx-auto border border-neutral-200"
 						/>
-						<p className="text-lg font-semibold">{truncateAddress(address)}</p>
+						<p className="text-lg font-semibold font-mono">
+							{truncateAddress(address)}
+						</p>
 					</div>
 				)}
 				<div className="font-medium text-neutral-700 flex items-center gap-2">
