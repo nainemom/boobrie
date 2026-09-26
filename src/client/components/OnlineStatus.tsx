@@ -16,7 +16,7 @@ export const OnlineStatus: FC<{
 				? 'div'
 				: CircleQuestionMarkIcon;
 	const label = loading
-		? ''
+		? 'Loading…'
 		: online === null
 			? 'Hidden'
 			: online === false
@@ -27,24 +27,24 @@ export const OnlineStatus: FC<{
 	return (
 		<div
 			className={twMerge(
-				'inline-flex gap-1 items-center text-neutral-500 text-sm',
+				'inline-flex gap-1 items-center text-neutral-500 text-xs',
 				className,
 			)}
 			title={withLabel ? undefined : label}
 		>
 			<Icon
 				className={twJoin(
-					'shrink-0 inline-block rounded-full overflow-hidden size-3',
+					'shrink-0 inline-block rounded-full overflow-hidden size-2.75',
 					loading && 'animate-spin text-neutral-400',
-					!loading && online === true && 'bg-green-500 border border-green-100',
+					!loading && online === true && 'bg-green-500 border border-green-400',
 					!loading &&
 						online === false &&
-						'bg-neutral-300 border border-neutral-200',
-					!loading && online === null && 'bg-neutral-200',
+						'bg-neutral-300 border border-neutral-300',
+					!loading && online === null && 'bg-neutral-200 text-neutral-400',
 				)}
 				size={16}
 			/>
-			{withLabel && label}
+			{withLabel && <p className="mt-px">{label}</p>}
 		</div>
 	);
 };
