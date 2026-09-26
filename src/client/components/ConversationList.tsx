@@ -23,7 +23,7 @@ export const ConversationList: FC<{
 					>
 						<Avatar address={conversation.peer} className="size-16 shrink-0" />
 						<div className="flex min-w-0 w-full flex-col leading-tight">
-							<span className="truncate font-medium text-neutral-800">
+							<span className="truncate font-medium text-neutral-800 font-mono">
 								{truncateAddress(conversation.peer)}
 							</span>
 							{lastMessage ? (

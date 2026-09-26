@@ -1,9 +1,4 @@
-import {
-	CheckCircleIcon,
-	CircleQuestionMarkIcon,
-	LoaderCircleIcon,
-	XCircleIcon,
-} from 'lucide-react';
+import { CircleQuestionMarkIcon, LoaderCircleIcon } from 'lucide-react';
 import type { FC } from 'react';
 import { twJoin, twMerge } from 'tailwind-merge';
 
@@ -12,14 +7,13 @@ export const OnlineStatus: FC<{
 	loading?: boolean;
 	className?: string;
 	withLabel?: boolean;
-	size: 4 | 3;
-}> = ({ online, loading, size, withLabel = true, className }) => {
+}> = ({ online, loading, withLabel = true, className }) => {
 	const Icon = loading
 		? LoaderCircleIcon
 		: online === true
-			? CheckCircleIcon
+			? 'div'
 			: online === false
-				? XCircleIcon
+				? 'div'
 				: CircleQuestionMarkIcon;
 	const label = loading
 		? ''
@@ -36,16 +30,17 @@ export const OnlineStatus: FC<{
 				'inline-flex gap-1 items-center text-neutral-500 text-sm',
 				className,
 			)}
-			title={label}
+			title={withLabel ? undefined : label}
 		>
 			<Icon
 				className={twJoin(
-					'shrink-0 inline-block',
-					size === 4 ? 'size-4' : 'size-3',
+					'shrink-0 inline-block rounded-full overflow-hidden size-3',
 					loading && 'animate-spin text-neutral-400',
-					!loading && online === true && 'text-green-500',
-					!loading && online === false && 'text-neutral-500',
-					!loading && online === null && 'text-neutral-400',
+					!loading && online === true && 'bg-green-500 border border-green-100',
+					!loading &&
+						online === false &&
+						'bg-neutral-300 border border-neutral-200',
+					!loading && online === null && 'bg-neutral-200',
 				)}
 				size={16}
 			/>

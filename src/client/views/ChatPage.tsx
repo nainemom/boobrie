@@ -89,18 +89,20 @@ const Chat: FC<{ address: string }> = ({ address }) => {
 						>
 							<Avatar
 								address={address}
-								className="size-12 overflow-hidden rounded-md group-hover:bg-transparent group-active:bg-transparent"
+								className="size-12 shrink-0 overflow-hidden rounded-sm group-hover:bg-transparent group-active:bg-transparent"
 							/>
-							<div className="font-normal text-xl text-neutral-800 min-w-0 grow">
-								{truncateAddress(address)}{' '}
+							<div className="min-w-0 grow flex flex-col">
+								<p className="font-normal text-lg text-neutral-800 font-mono">
+									{truncateAddress(address)}{' '}
+								</p>
 								<OnlineStatus
 									loading={peer.isLoading}
 									online={peer.data?.online}
-									size={4}
-									withLabel={false}
+									withLabel
+									className="-mt-0.5"
 								/>
 							</div>
-							<Signature address={address} className="size-16" />
+							<Signature address={address} className="size-12" />
 						</Button>
 					</Link>
 				}

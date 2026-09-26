@@ -118,7 +118,7 @@ export function RandomChatModal({ onClose }: { onClose: () => void }) {
 					<>
 						<div className="flex flex-col items-center gap-3 py-2">
 							<Avatar address={search.data} className="size-36" />
-							<span className="w-full truncate text-center text-base text-neutral-800">
+							<span className="w-full truncate text-center text-base text-neutral-800 font-mono">
 								{truncateAddress(search.data)}
 							</span>
 						</div>
