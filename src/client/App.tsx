@@ -10,6 +10,7 @@ import { Navbar } from './components/Navbar';
 import { Page, PageActions, PageBody } from './components/Page';
 import { CenterSpinner } from './components/Spinner';
 import { restore } from './services/auth';
+import { useUnreadBadge } from './services/badge';
 import { AuthPage } from './views/AuthPage';
 import { ChatPage } from './views/ChatPage';
 import { ChatRedirectPage } from './views/ChatRedirectPage';
@@ -108,6 +109,7 @@ export function App() {
 
 const Routes: FC = () => {
 	use(restored);
+	useUnreadBadge();
 
 	return (
 		<Switch>
