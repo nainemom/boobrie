@@ -1,6 +1,14 @@
 # Changelog
 
 
+## v0.0.30
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.29...v0.0.30)
+
+### 🩹 Fixes
+
+- Status alignment on chat page ([#30](https://github.com/nainemom/boobrie/pull/30))
+
 ## v0.0.29
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.28...v0.0.29)
