@@ -1,6 +1,21 @@
 # Changelog
 
 
+## v0.0.29
+
+[compare changes](https://github.com/nainemom/boobrie/compare/v0.0.28...v0.0.29)
+
+### 🚀 Enhancements
+
+- Show whether users are online ([#25](https://github.com/nainemom/boobrie/pull/25))
+- Add view-transition effect ([#26](https://github.com/nainemom/boobrie/pull/26))
+- Create error boundary ([#27](https://github.com/nainemom/boobrie/pull/27))
+- Show unread count on app icon and tab title ([#28](https://github.com/nainemom/boobrie/pull/28))
+
+### 🏡 Chore
+
+- Improve address font & online status ([#29](https://github.com/nainemom/boobrie/pull/29))
+
 ## v0.0.28
 
 [compare changes](https://github.com/nainemom/boobrie/compare/v0.0.27...v0.0.28)
